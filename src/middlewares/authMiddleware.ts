@@ -1,43 +1,23 @@
 import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import User from "../models/User";
-import { JWT_SECRET } from "../config/jwt-config";
 import { AppError } from "../utils/appError";
 import { asyncWrapper } from "../utils/asyncWrapper";
+import { verifyAuthToken } from "../utils/authToken";
 
-interface AuthTokenPayload extends JwtPayload {
-  id: string;
-}
+export const authorize = asyncWrapper(async (req: Request, _res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
 
-export const authorize = asyncWrapper(
-  async (req: Request, _res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new AppError("No token provided. Please log in.", 401));
+  }
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return next(new AppError("No token provided. Please log in.", 401));
-    }
+  const token = authHeader.split(" ")[1];
 
-    if (!JWT_SECRET) {
-      return next(new AppError("JWT_SECRET is not configured", 500));
-    }
+  try {
+    const decoded = verifyAuthToken(token);
 
-    const token = authHeader.split(" ")[1];
-
-    let decoded: AuthTokenPayload;
-
-    try {
-      decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
-    } catch (error: any) {
-      if (error.name === "TokenExpiredError") {
-        return next(new AppError("Token expired. Please log in again.", 401));
-      }
-
-      return next(new AppError("Invalid token. Please log in again.", 401));
-    }
-
-    const currentUser = await User.findById(decoded.id).select(
-      "+passwordChangedAt"
-    );
+    const currentUser = await User.findById(decoded.id).select("+passwordChangedAt");
 
     if (!currentUser) {
       return next(new AppError("User belonging to this token no longer exists", 401));
@@ -48,9 +28,7 @@ export const authorize = asyncWrapper(
     }
 
     if (currentUser.changedPasswordAfter(decoded.iat)) {
-      return next(
-        new AppError("Password was changed recently. Please log in again.", 401)
-      );
+      return next(new AppError("Password was changed recently. Please log in again.", 401));
     }
 
     req.user = {
@@ -59,5 +37,11 @@ export const authorize = asyncWrapper(
     };
 
     return next();
+  } catch (error: any) {
+    if (error instanceof Error && error.name === "TokenExpiredError") {
+      return next(new AppError("Token expired. Please log in again.", 401));
+    }
+
+    return next(new AppError("Invalid token. Please log in again.", 401));
   }
-);
+});
