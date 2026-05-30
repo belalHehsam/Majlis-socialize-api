@@ -1,14 +1,22 @@
 import { Router } from "express";
 import { authorize } from "../../middlewares/authMiddleware";
-import { asyncWrapper } from "../../utils/asyncWrapper";
-// import { getAllUsers, getUserById, createUser, updateUser, deleteUser } from "./userController.js";
+import { validate } from "../../middlewares/validateMiddleware";
+import {
+    getMyProfile,
+    updateMyProfile,
+    updateMySettings,
+} from "./userController";
+import { updateProfileSchema, updateSettingsSchema } from "./userValidator";
 
 const router = Router();
 
-// router.get("/", authorize, getAllUsers);
-// router.get("/:id", authorize, getUserById);
-// router.post("/", authorize, createUser);
-// router.patch("/:id", authorize, updateUser);
-// router.delete("/:id", authorize, deleteUser);
+router.get("/me", authorize, getMyProfile);
+router.patch("/me", authorize, validate(updateProfileSchema), updateMyProfile);
+router.patch(
+    "/me/settings",
+    authorize,
+    validate(updateSettingsSchema),
+    updateMySettings
+);
 
 export default router;

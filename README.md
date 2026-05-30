@@ -414,6 +414,8 @@ MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/majlis
 # Authentication
 JWT_SECRET=your_jwt_secret_here
 JWT_EXPIRES_IN=7d
+JWT_ISSUER=backend-service
+JWT_AUDIENCE=frontend-service
 
 # OpenAI
 OPENAI_API_KEY=sk-...
