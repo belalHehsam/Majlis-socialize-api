@@ -13,7 +13,7 @@ const app: Application = express();
 // ── 1. Global Middleware ──────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.CLIENT_URL ?? "http://localhost:3000" }));
+app.use(cors({ origin: process.env.CLIENT_URL }));
 app.use(morgan("dev"));
 
 // ── 2. Route Mounting ─────────────────────────────────────────────────────────
