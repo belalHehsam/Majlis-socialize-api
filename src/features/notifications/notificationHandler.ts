@@ -1,7 +1,3 @@
-export type NotificationType = "like" | "comment" | "friend_request" | "friend_accept";
+import { AppSocket } from "../../types/socketTypes";
 
-interface NotificationPayload {
-  type: NotificationType;
-  fromUserId: string;
-  postId?: string;
-}
+export const registerNotificationHandlers = (socket: AppSocket) => {};
