@@ -1,14 +1,17 @@
 import { Router } from "express";
 import { authorize } from "../../middlewares/authMiddleware";
+import { validate } from "../../middlewares/validateMiddleware";
 import { asyncWrapper } from "../../utils/asyncWrapper";
-// import { getAllPosts, getPostById, createPost, updatePost, deletePost } from "./postController.js";
+import upload from "../../middlewares/uploadMiddleware";
+import { createPostSchema, updatePostSchema } from "./postValidator";
+import { getAllPosts, getPostById, createPost, updatePost, deletePost } from "./postController";
 
 const router = Router();
 
-// router.get("/", authorize, getAllPosts);
-// router.get("/:id", authorize, getPostById);
-// router.post("/", authorize, createPost);
-// router.patch("/:id", authorize, pdatePost);
-// router.delete("/:id", authorize, deletePost);
+router.get("/", authorize, asyncWrapper(getAllPosts));
+router.get("/:id", authorize, asyncWrapper(getPostById));
+router.post("/", authorize, upload.single("image"), validate(createPostSchema), asyncWrapper(createPost));
+router.patch("/:id", validate(updatePostSchema), authorize, asyncWrapper(updatePost));
+router.delete("/:id", authorize, asyncWrapper(deletePost));
 
 export default router;

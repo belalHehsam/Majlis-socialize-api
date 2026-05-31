@@ -5,25 +5,21 @@ import { notFound } from "./utils/notFound";
 import { errorHandler } from "./utils/errorHandler";
 import authRoutes from "./features/auth/authRoutes";
 import userRoutes from "./features/users/userRoutes";
-
-// ── Feature Routes ────────────────────────────────────────────────────────────
+import postRoutes from "./features/posts/postRoutes";
 
 const app: Application = express();
 
-// ── 1. Global Middleware ──────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.CLIENT_URL ?? "http://localhost:3000" }));
+app.use(cors({ origin: [process.env.CLIENT_URL ?? "http://localhost:5173", "http://localhost:5173"] }));
 app.use(morgan("dev"));
 
-// ── 2. Route Mounting ─────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/v1/posts", postRoutes);
 
-// ── 3. Not Found Handler (must be after all routes) ───────────────────────────
 app.use(notFound);
 
-// ── 4. Global Error Handler (must be last) ────────────────────────────────────
 app.use(errorHandler);
 
 export default app;
