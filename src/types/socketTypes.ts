@@ -1,7 +1,5 @@
 import { Server, Socket } from "socket.io";
-
-export type NotificationType = "like" | "comment" | "friend_request";
-// i will use friend_request to increment bell icon count
+import { NotificationType } from "../models/Notification";
 
 export interface NotificationPayload {
   type: NotificationType;
