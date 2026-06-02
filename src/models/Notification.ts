@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-export type NotificationType = "like" | "comment" | "friend_request" | "friend_accept";
+export const notificationTypes = ["like", "comment", "friend_request", "friend_accept"] as const;
+export type NotificationType = typeof notificationTypes[number];
 
 export interface INotification extends Document {
   recipient: Types.ObjectId;
@@ -17,7 +18,7 @@ const NotificationSchema = new Schema<INotification>(
     sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: {
       type: String,
-      enum: ["like", "comment", "friend_request", "friend_accept"],
+      enum: notificationTypes,
       required: true,
     },
     post: { type: Schema.Types.ObjectId, ref: "Post" },
