@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { ZodAny, ZodError } from "zod";
 import jsend from "../utils/jsend";
 
-export const validate = (schema: AnyZodObject) => {
+export const validate = (schema: ZodAny) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = schema.parse({
