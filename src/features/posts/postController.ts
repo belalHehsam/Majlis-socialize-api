@@ -37,7 +37,61 @@ async function uploadToCloudinary(fileBuffer: Buffer, mimetype: string): Promise
 // ── Controllers ───────────────────────────────────────────────────────────────
 
 /**
- * @desc    Create a new post with AI moderation and recommendation
+ * @desc    Analyze post content (moderation + recommendation) without saving
+ * @route   POST /api/v1/posts/analyze
+ * @access  Private
+ */
+export const analyzePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { content, tags } = req.body;
+
+  let moderationResult;
+  try {
+    moderationResult = await moderateContent(content);
+  } catch {
+    return next(new AppError("Content moderation service is temporarily unavailable. Please try again later.", 503));
+  }
+
+  // If rejected, return 422 immediately
+  if (moderationResult.decision === "rejected") {
+    res.status(422).json(
+      jsend.fail(
+        {
+          content: moderationResult.reasoning,
+          violations: moderationResult.violations,
+        },
+        "Your post does not meet our content guidelines"
+      )
+    );
+    return;
+  }
+
+  const isFlagged =
+    moderationResult.decision === "needs_review" ||
+    (moderationResult.decision === "approved" && moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
+
+  const moderationStatus = isFlagged ? "needs_review" : "approved";
+
+  let recommendation = null;
+  try {
+    recommendation = await getRecommendation(content, tags);
+  } catch {
+    // Non-blocking
+  }
+
+  res.status(200).json(
+    jsend.success({
+      moderation: {
+        status: moderationStatus,
+        reasoning: moderationResult.reasoning,
+        detectedTopic: moderationResult.detectedTopic,
+      },
+      recommendation,
+    })
+  );
+};
+
+/**
+ * @desc    Create a new post
  * @route   POST /api/v1/posts
  * @access  Private
  */
@@ -75,12 +129,7 @@ export const createPost = async (req: Request, res: Response, next: NextFunction
 
   const moderationStatus = isFlagged ? "needs_review" : "approved";
 
-  let recommendation = null;
-  try {
-    recommendation = await getRecommendation(content, tags);
-  } catch {
-    // Recommendation failure is non-blocking — post still saves
-  }
+  let recommendation = req.body.recommendation || null;
 
   let imageUrl: string | undefined;
   if (req.file) {

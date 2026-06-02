@@ -15,6 +15,24 @@ export const createPostSchema = z.object({
       z.array(z.enum(["quran", "hadith", "fiqh", "general", "dua", "tafsir", "seerah", "reminder"])).min(1, "Select at least one tag")
     ),
       commentsEnabled: z.preprocess((val) => val === "true" || val === true, z.boolean().optional()),
+      recommendation: z.preprocess(
+        (val) => {
+          try {
+            return typeof val === "string" ? JSON.parse(val) : val;
+          } catch {
+            return undefined;
+          }
+        },
+        z.object({
+          type: z.enum(["quran", "hadith"]),
+          arabicText: z.string(),
+          translationText: z.string(),
+          source: z.string(),
+          surahName: z.string().optional(),
+          reference: z.string(),
+          relevanceExplanation: z.string(),
+        }).optional()
+      ),
     })
     .strict(),
 });
