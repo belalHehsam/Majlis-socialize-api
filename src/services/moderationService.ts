@@ -31,9 +31,11 @@ This platform ONLY permits content directly related to Islamic topics.
 - Dawah and interfaith dialogue conducted respectfully
 - Islamic finance (halal investment, zakat, sadaqah)
 - Islamic education, book recommendations on Islamic topics
+- Personal reflections, seeking support/dua for hardships, or sharing struggles while maintaining trust in Allah (Tawakkul) and patience (Sabr).
+- ANY post expressing feeling overwhelmed, facing trials, or seeking patience/dua IS ALLOWED.
 
 ### ❌ REJECTED CONTENT
-- Any content NOT related to Islam (secular topics, entertainment, sports, technology, memes, personal non-Islamic content)
+- Any content NOT related to Islam (secular topics, entertainment, sports, technology, memes, purely secular personal updates like "what I ate today")
 - Hate speech, incitement to violence, or dehumanizing language against any group
 - Profanity, vulgarity, or sexually explicit content
 - Sectarian attacks or takfir (declaring other Muslims as disbelievers)
@@ -56,46 +58,25 @@ This platform ONLY permits content directly related to Islamic topics.
 ## IMPORTANT NOTES
 - Be fair and consistent. Analyze context and intent, not just keywords.
 - A post mentioning "patience" is Islamic if it discusses sabr in an Islamic context.
+- CRITICAL EXCEPTION: Allow ALL personal status updates, diary-like posts, or expressions of being overwhelmed, provided they mention reliance on Allah, dua, patience, or Islam in any positive way.
 - Do not reject educational or scholarly content just because it discusses sensitive Islamic topics (e.g., jihad in its scholarly definition, capital punishment in fiqh).
-- When in doubt, use "needs_review" rather than "rejected".`;
+- When in doubt, use "needs_review" rather than "rejected".
+
+## OUTPUT FORMAT
+You MUST return ONLY a valid JSON object matching the exact structure below. Do not include markdown code blocks (like \`\`\`json).
+
+{
+  "decision": "approved" | "rejected" | "needs_review",
+  "confidence": 0.0 to 1.0,
+  "reasoning": "Step-by-step explanation...",
+  "detectedTopic": "The primary Islamic topic detected",
+  "violations": ["list", "of", "violations", "if", "any"]
+}`;
 
 // ── JSON Schema ───────────────────────────────────────────────────────────────
 
 const MODERATION_RESPONSE_SCHEMA = {
-  type: "json_schema" as const,
-  json_schema: {
-    name: "moderation_result",
-    strict: true,
-    schema: {
-      type: "object",
-      properties: {
-        decision: {
-          type: "string",
-          enum: ["approved", "rejected", "needs_review"],
-          description: "The moderation decision",
-        },
-        confidence: {
-          type: "number",
-          description: "Confidence score from 0.0 to 1.0",
-        },
-        reasoning: {
-          type: "string",
-          description: "Step-by-step explanation of the evaluation process",
-        },
-        detectedTopic: {
-          type: "string",
-          description: "The primary Islamic topic detected (e.g., 'Quran tafsir', 'Islamic ethics')",
-        },
-        violations: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of specific policy violations found. Empty array if none.",
-        },
-      },
-      required: ["decision", "confidence", "reasoning", "detectedTopic", "violations"],
-      additionalProperties: false,
-    },
-  },
+  type: "json_object" as const,
 };
 
 // ── Service Function ──────────────────────────────────────────────────────────
@@ -114,7 +95,7 @@ export async function moderateContent(content: string): Promise<ModerationResult
       { role: "system", content: MODERATION_SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Evaluate the following post for compliance with our Islamic content policy:\n\n---\n${content}\n---`,
+        content: `Evaluate the following post for compliance with our Islamic content policy:\n\n"""\n${content}\n"""`,
       },
     ],
     response_format: MODERATION_RESPONSE_SCHEMA,
@@ -124,13 +105,30 @@ export async function moderateContent(content: string): Promise<ModerationResult
   const raw = completion.choices[0]?.message?.content;
 
   if (!raw) {
-    throw new Error("AI moderation returned empty response");
+    return {
+      decision: "needs_review",
+      confidence: 0.0,
+      reasoning: "AI returned empty response.",
+      detectedTopic: "Unknown",
+      violations: [],
+    };
   }
 
-  const result: ModerationResult = JSON.parse(raw);
+  try {
+    const cleanedRaw = raw.replace(/```json\n?|\n?```/g, "").trim();
+    const result: ModerationResult = JSON.parse(cleanedRaw);
 
-  // Clamp confidence between 0 and 1
-  result.confidence = Math.max(0, Math.min(1, result.confidence));
+    // Clamp confidence between 0 and 1
+    result.confidence = Math.max(0, Math.min(1, result.confidence || 0.0));
 
-  return result;
+    return result;
+  } catch (error) {
+    return {
+      decision: "needs_review",
+      confidence: 0.0,
+      reasoning: "AI failed to return valid JSON. Needs manual review.",
+      detectedTopic: "Unknown",
+      violations: [],
+    };
+  }
 }
