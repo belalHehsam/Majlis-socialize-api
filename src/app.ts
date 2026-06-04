@@ -6,6 +6,7 @@ import { errorHandler } from "./utils/errorHandler";
 import authRoutes from "./features/auth/authRoutes";
 import userRoutes from "./features/users/userRoutes";
 import notificationRoutes from "./features/notifications/notificationRoutes";
+import chatRoutes from "./features/chat/chatRoutes";
 
 // ── Feature Routes ────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/chats", chatRoutes);
 
 // ── 3. Not Found Handler (must be after all routes) ───────────────────────────
 app.use(notFound);
