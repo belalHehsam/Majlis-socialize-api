@@ -1,5 +1,6 @@
 import { registerFriendHandlers } from "../features/friends/friendHandler";
 import { registerNotificationHandlers } from "../features/notifications/notificationHandler";
+import { registerChatHandlers } from "../features/chat/chatHandler";
 import type { IO } from "../types/socketTypes";
 import SocketService from "./socketService";
 
@@ -12,6 +13,9 @@ export const SocketManager = (io: IO): void => {
     console.log(`User connected: ${userId}`);
 
     registerNotificationHandlers(socket);
+
+    registerChatHandlers(io, socket);
+
     // registerFriendHandlers(socket); // mostly would be removed
 
     socket.on("disconnect", () => {
