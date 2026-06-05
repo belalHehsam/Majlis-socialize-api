@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { ZodAny, ZodError } from "zod";
+import { ZodError, ZodTypeAny } from "zod";
 import jsend from "../utils/jsend";
 
-export const validate = (schema: ZodAny) => {
+export const validate = (schema: ZodTypeAny) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = schema.parse({
@@ -31,6 +31,7 @@ export const validate = (schema: ZodAny) => {
           message: issue.message,
         }));
 
+        console.error("Validation failed:", errors);
         return res.status(422).json(jsend.fail(errors, "Validation failed"));
       }
 

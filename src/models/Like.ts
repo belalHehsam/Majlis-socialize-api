@@ -4,6 +4,7 @@ export interface ILike extends Document {
   post: Types.ObjectId;
   user: Types.ObjectId;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const LikeSchema = new Schema<ILike>(
@@ -14,6 +15,7 @@ const LikeSchema = new Schema<ILike>(
   { timestamps: true }
 );
 
-
+// High-Performance Optimization: Prevents duplicate likes from a single user on any given post
+LikeSchema.index({ user: 1, post: 1 }, { unique: true });
 
 export default mongoose.model<ILike>("Like", LikeSchema);
