@@ -30,7 +30,7 @@ export const validate = (schema: ZodTypeAny) => {
           path: issue.path.join("."),
           message: issue.message,
         }));
-        
+
         console.error("Validation failed:", errors);
         return res.status(422).json(jsend.fail(errors, "Validation failed"));
       }

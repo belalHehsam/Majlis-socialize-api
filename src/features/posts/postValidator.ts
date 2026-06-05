@@ -55,3 +55,26 @@ export const updatePostSchema = z.object({
     })
     .strict(),
 });
+
+export const postIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid post ID format"),
+  }),
+});
+
+export const feedQuerySchema = z.object({
+  query: z.object({
+    page: z
+      .string()
+      .optional()
+      .transform((val) => {
+        val ? parseInt(val, 10) : 1;
+      }),
+    limit: z
+      .string()
+      .optional()
+      .transform((val) => {
+        val ? parseInt(val, 10) : 10;
+      }),
+  }),
+});

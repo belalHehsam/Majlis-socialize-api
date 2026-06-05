@@ -5,6 +5,9 @@ import jsend from "../../utils/jsend";
 import cloudinary from "../../config/cloudinary-config";
 import { moderateContent } from "../../services/moderationService";
 import { getRecommendation } from "../../services/recommendationService";
+import Like from "../../models/Like";
+import mongoose from "mongoose";
+import { AggregateFeatures } from "./../../utils/AggregateFeatures";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -95,7 +98,11 @@ export const analyzePost = async (req: Request, res: Response, next: NextFunctio
  * @route   POST /api/v1/posts
  * @access  Private
  */
-export const createPost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createPost = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { content, tags, commentsEnabled } = req.body;
   const userId = req.user!.id;
 
@@ -320,4 +327,226 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
   await post.deleteOne();
 
   res.status(200).json(jsend.success(null));
+};
+
+/**
+ * @desc    Toggle Like / Unlike on a post dynamically
+ * @route   POST /api/v1/posts/:id/like
+ * @access  Private
+ */
+
+export const togglePostLike = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  if (typeof req.params.id !== "string") {
+    return next(new AppError("Invalid post id", 400));
+  }
+
+  const userId = req.user.id;
+  const postId = req.params.id;
+
+  const post = await Post.findById(postId);
+  if (!post) return next(new AppError("Post not found", 404));
+
+  const existingLike = await Like.findOne({ user: userId, post: postId });
+
+  if (existingLike) {
+    await Like.deleteOne({ _id: existingLike._id });
+
+    const updatedPost = await Post.findByIdAndUpdate(
+      postId,
+      { $inc: { likesCount: -1 } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPost) {
+      return next(new AppError("Post not found", 404));
+    }
+    res.status(200).json(jsend.success("Post unliked successfully"));
+    return;
+  }
+
+  await Like.create({ user: userId, post: postId });
+
+  const updatedPost = await Post.findByIdAndUpdate(
+    postId,
+    { $inc: { likesCount: 1 } },
+    { new: true, runValidators: true }
+  );
+  if (!updatedPost) {
+    // Rollback the like document if the post was deleted mid-request
+    await Like.deleteOne({ user: userId, post: postId });
+    return next(new AppError("Post not found", 404));
+  }
+  res.status(200).json(jsend.success("Post liked successfully"));
+};
+
+/**
+ * @desc    Get paginated home feed with personalized like context states
+ * @route   GET /api/v1/posts/feed
+ * @access  Private
+ */
+
+export const getHomeFeed = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) return next(new AppError("You are not logged in", 401));
+
+  const currentUserId = new mongoose.Types.ObjectId(req.user.id);
+
+  const features = new AggregateFeatures(req.query)
+    .match({ moderationStatus: "approved" })
+    .sort({ createdAt: -1 })
+    .paginate();
+
+  features.pipleLine.push(
+    {
+      $lookup: {
+        from: "users",
+        localField: "author",
+        foreignField: "_id",
+        as: "authorDetails",
+      },
+    },
+
+    {
+      $unwind: "$authorDetails",
+    },
+
+    {
+      $lookup: {
+        from: "likes",
+        let: { postId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ["$post", "$$postId"] }, { $eq: ["$user", currentUserId] }],
+              },
+            },
+          },
+        ],
+        as: "currentUserLike",
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        image: 1,
+        tags: 1,
+        likesCount: 1,
+        commentsCount: 1,
+        commentsEnabled: 1,
+        recommendation: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        author: {
+          _id: "$authorDetails._id",
+          username: "$authorDetails.username",
+          avatar: "$authorDetails.avatar",
+        },
+        //  Converts array matches to an instant toggleable boolean flag for TanStack Query
+        isLiked: { $gt: [{ $size: "$currentUserLike" }, 0] },
+      },
+    }
+  );
+
+  const aggregatePosts = await Post.aggregate(features.pipleLine);
+
+  const totalApprovedPosts = await Post.countDocuments({ moderationStatus: "approved" });
+
+  const pagination = features.buildPagination(totalApprovedPosts, aggregatePosts.length);
+
+  res.status(200).json({ status: "success", data: { posts: aggregatePosts, pagination } });
+
+  // const aggregatedPosts = await Post.aggregate([
+  //   // 1. Filter out flagged posts to enforce moderation safety
+  //   { $match: { moderationStatus: "approved" } },
+
+  //   // 2. Sort chronologically for fresh content delivery
+  //   { $sort: { createdAt: -1 } },
+
+  //   // 3. Execution of precise pagination matching jumps
+  //   { $skip: skip },
+  //   { $limit: limit },
+
+  //   // 4. Populate author metadata from the users collection
+  //   {
+  //     $lookup: {
+  //       from: "users",
+  //       localField: "author",
+  //       foreignField: "_id",
+  //       as: "authorDetails",
+  //     },
+  //   },
+
+  //   { $unwind: "$authorDetails" },
+
+  //   // 5. Query the likes collection to establish current user's reaction state
+  //   {
+  //     $lookup: {
+  //       from: "likes",
+  //       let: { postId: "$_id" },
+  //       pipeline: [
+  //         {
+  //           $match: {
+  //             $expr: {
+  //               $and: [{ $eq: ["$post", "$$postId"] }, { $eq: ["$user", currentUserId] }],
+  //             },
+  //           },
+  //         },
+  //       ],
+  //       as: "currentUserLike",
+  //     },
+  //   },
+
+  //   // 6. Project and format fields to produce a polished payload structure
+  //   {
+  //     $project: {
+  //       _id: 1,
+  //       content: 1,
+  //       image: 1,
+  //       tags: 1,
+  //       likesCount: 1,
+  //       commentsCount: 1,
+  //       commentsEnabled: 1,
+  //       recommendation: 1,
+  //       createdAt: 1,
+  //       updatedAt: 1,
+  //       author: {
+  //         _id: "$authorDetails._id",
+  //         username: "$authorDetails.username",
+  //         avatar: "$authorDetails.avatar",
+  //       },
+  //       // Converts array matches to an instant toggleable boolean flag for TanStack Query
+  //       isLiked: { $gt: [{ $size: "$currentUserLike" }, 0] },
+  //     },
+  //   },
+  // ]);
+
+  // // Retrieve structural diagnostics to guide frontend termination limits
+  // const totalApprovedPosts = await Post.countDocuments({ moderationStatus: "approved" });
+
+  // const hasNextPage = skip + aggregatedPosts.length < totalApprovedPosts;
+
+  // res.status(200).json(
+  //   jsend.success({
+  //     posts: aggregatedPosts,
+  //     pagination: {
+  //       page,
+  //       limit,
+  //       totalResults: totalApprovedPosts,
+  //       hasNextPage,
+  //     },
+  //   })
+  // );
 };
