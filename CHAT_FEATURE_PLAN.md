@@ -2,8 +2,8 @@
 
 ## Goal
 
-Build a direct friend-to-friend chat feature for Majlis using Express, MongoDB, and Socket.IO.
-The first version should support real-time messaging between confirmed friends, message persistence, unread tracking, and notification integration.
+Build a direct 1:1 chat feature for Majlis using Express, MongoDB, and Socket.IO.
+The first version should support real-time messaging between any authenticated users, message persistence, unread tracking, and notification integration.
 
 ## What Already Exists
 
@@ -44,7 +44,7 @@ Notes:
 Before writing code, decide these rules clearly:
 
 1. Chat is 1:1 only for now.
-2. Chat is only allowed between users who are already friends.
+2. Chat is allowed between any authenticated users.
 3. A message is delivered in real time if the recipient is online.
 4. Every message is still saved in the database so the conversation works offline too.
 5. Messages can be edited and deleted in the MVP.
@@ -85,7 +85,7 @@ Outcome: define the MVP before coding.
 
 Tasks:
 
-1. Confirm the MVP scope is 1:1 friend chat only.
+1. Confirm the MVP scope is 1:1 chat only.
 2. Confirm messages support edit and delete.
 3. Confirm typing indicators and read receipts are included now.
 4. Decide the delivery model: use conversation rooms for chat broadcasting, and keep direct user socket emits for user-specific events like notifications and presence-driven delivery.
@@ -109,7 +109,7 @@ Tasks:
 
 Important rule:
 
-- Use the friend relationship as a gate before creating or opening a conversation.
+- Use the authenticated user identity as the gate before creating or opening a conversation.
 
 ## Phase 2 - REST API
 
@@ -209,13 +209,9 @@ Those helpers would prevent the chat, friends, and notification flows from each 
 
 ## Phase 6 - Friend System Integration
 
-Outcome: make chat consistent with the existing friend workflow.
+Outcome: keep chat compatible with the existing friend workflow without making it dependent on friendships.
 
-Chat should depend on these friend rules:
-
-1. A user can open chat only after a friend relationship exists.
-2. If a friend request is accepted, the UI can unlock the chat entry point.
-3. The existing friend socket methods can later be expanded to open chat prompts or jump directly into the conversation.
+Chat can still surface friend-related UX if the product wants it, but it should not block direct messaging between authenticated users.
 
 Shared code to keep in mind:
 
@@ -230,7 +226,6 @@ Outcome: prevent unauthorized access and bad payloads.
 Rules:
 
 - verify the socket user before joining or sending
-- verify the two users are friends before creating a conversation
 - verify the recipient belongs to the conversation before accepting a message
 - validate message length and content type
 - reject empty or whitespace-only messages
@@ -242,8 +237,8 @@ Outcome: prove the feature works across HTTP and socket paths.
 
 Test coverage should include:
 
-1. creating a conversation between friends
-2. blocking chat between non-friends
+1. creating a conversation between authenticated users
+2. allowing chat between any authenticated users
 3. sending a message and persisting it
 4. receiving a socket event for an online user
 5. creating an offline notification when the recipient is not connected

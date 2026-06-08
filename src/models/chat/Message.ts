@@ -6,10 +6,13 @@ export interface IMessage extends Document {
   sender: Types.ObjectId;
   recipient: Types.ObjectId;
   content: string;
-  type: "text";
+  type: "text" | "image";
   isEdited?: boolean;
   isDeleted?: boolean;
   readAt?: Date;
+  mediaUrl?: string;
+  mediaPublicId?: string;
+  mediaMimeType?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,15 +31,21 @@ const MessageSchema = new Schema<IMessage>(
       required: true,
     },
 
+    recipient: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
     content: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     type: {
       type: String,
-      enum: ["text"],
+      enum: ["text", "image"],
       default: "text",
     },
 
@@ -52,6 +61,18 @@ const MessageSchema = new Schema<IMessage>(
 
     readAt: {
       type: Date,
+    },
+
+    mediaUrl: {
+      type: String,
+    },
+
+    mediaPublicId: {
+      type: String,
+    },
+
+    mediaMimeType: {
+      type: String,
     },
   },
   {

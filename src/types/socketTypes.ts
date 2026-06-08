@@ -16,7 +16,11 @@ export interface NotificationPayload {
     _id: string;
     content: string;
     sender: { _id: string; username?: string; avatar?: string } | string;
+    recipient?: string;
     conversation: string;
+    type?: "text" | "image";
+    mediaUrl?: string;
+    mediaMimeType?: string;
     createdAt: Date;
   };
   createdAt: Date;
@@ -46,7 +50,16 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   "notification:markRead": (notificationId: string) => void;
   // chat events from client
-  "chat:sendMessage": (data: { recipientId: string; content: string; conversationId: string }) => void;
+  "chat:sendMessage": (data: {
+    recipientId: string;
+    content?: string;
+    conversationId: string;
+    media?: {
+      url: string;
+      publicId: string;
+      mimeType?: string;
+    };
+  }) => void;
   "chat:join": (conversationId: string) => void;
   "chat:typing": (data: { conversationId: string }) => void;
   "chat:stopTyping": (data: { conversationId: string }) => void;
