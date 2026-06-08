@@ -1,11 +1,18 @@
 import { Router } from "express";
 import { authorize } from "../../middlewares/authMiddleware";
-import { asyncWrapper } from "../../utils/asyncWrapper";
-// import { getNotifications, markAsRead } from "./notificationController.js";
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getUnreadCount,
+} from "./notificationController";
 
 const router = Router();
+router.use(authorize);
 
-// router.get("/", authorize, getNotifications);
-// router.patch("/:id/read", authorize, markAsRead);
+router.get("/", getNotifications);
+router.get("/unread-count", getUnreadCount);
+router.patch("/read-all", markAllNotificationsRead);
+router.patch("/:id/read", markNotificationRead);
 
 export default router;
