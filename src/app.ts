@@ -8,6 +8,7 @@ import userRoutes from "./features/users/userRoutes";
 import postRoutes from "./features/posts/postRoutes";
 import notificationRoutes from "./features/notifications/notificationRoutes";
 import chatRoutes from "./features/chat/chatRoutes";
+import voiceRoutes from "./features/voice/voiceRoutes";
 
 // ── Feature Routes ────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/v1/posts", postRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chats", chatRoutes);
+app.use("/api/voice-channels", voiceRoutes);
 
 app.use(notFound);
 

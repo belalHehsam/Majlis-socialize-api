@@ -1,6 +1,7 @@
 import { registerFriendHandlers } from "../features/friends/friendHandler";
 import { registerNotificationHandlers } from "../features/notifications/notificationHandler";
 import { registerChatHandlers } from "../features/chat/chatHandler";
+import { registerVoiceHandlers } from "../features/voice/voiceHandler";
 import type { IO } from "../types/socketTypes";
 import SocketService from "./socketService";
 
@@ -15,6 +16,8 @@ export const SocketManager = (io: IO): void => {
     registerNotificationHandlers(socket);
 
     registerChatHandlers(io, socket);
+
+    registerVoiceHandlers(io, socket);
 
     // registerFriendHandlers(socket); // mostly would be removed
 
