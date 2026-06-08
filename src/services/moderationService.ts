@@ -88,11 +88,11 @@ const MODERATION_RESPONSE_SCHEMA = {
  * @returns ModerationResult with decision, confidence, and reasoning
  * @throws Error if the AI call fails
  */
-export async function moderateContent(content: string): Promise<ModerationResult> {
+export async function moderateContent(content: string, locale: string = "en"): Promise<ModerationResult> {
   const completion = await gemini.chat.completions.create({
     model: AI_MODEL,
     messages: [
-      { role: "system", content: MODERATION_SYSTEM_PROMPT },
+      { role: "system", content: MODERATION_SYSTEM_PROMPT + `\n\nCRITICAL: The "reasoning" string MUST be written in the following language: ${locale === "ar" ? "Arabic" : "English"}.` },
       {
         role: "user",
         content: `Evaluate the following post for compliance with our Islamic content policy:\n\n"""\n${content}\n"""`,

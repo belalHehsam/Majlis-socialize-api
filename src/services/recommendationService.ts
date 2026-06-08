@@ -214,7 +214,8 @@ const COLLECTION_DISPLAY_NAMES: Record<string, string> = {
  */
 export async function getRecommendation(
   content: string,
-  tags: string[]
+  tags: string[],
+  locale: string = "en"
 ): Promise<VerifiedRecommendation | null> {
   try {
     // ── Step 1: Get AI proposal ──────────────────────────────────────────────
@@ -222,7 +223,7 @@ export async function getRecommendation(
     const completion = await gemini.chat.completions.create({
       model: AI_MODEL,
       messages: [
-        { role: "system", content: RECOMMENDATION_SYSTEM_PROMPT },
+        { role: "system", content: RECOMMENDATION_SYSTEM_PROMPT + `\n\nCRITICAL: The "relevanceExplanation" string MUST be written in the following language: ${locale === "ar" ? "Arabic" : "English"}.` },
         {
           role: "user",
           content: `Post tags: ${tags.join(', ')}\n\nPost content:\n---\n${content}\n---\n\nRecommend a relevant Quran ayah or Hadith for this post.`,
