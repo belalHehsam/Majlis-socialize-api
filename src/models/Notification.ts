@@ -1,6 +1,12 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-export const notificationTypes = ["like", "comment", "friend_request", "friend_accept"] as const;
+export const notificationTypes = [
+  "like",
+  "comment",
+  "friend_request",
+  "friend_accept",
+  "NEW_MESSAGE",
+] as const;
 export type NotificationType = typeof notificationTypes[number];
 
 export interface INotification extends Document {

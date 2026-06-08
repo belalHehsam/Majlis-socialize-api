@@ -2,7 +2,8 @@ import type {
   FriendAcceptedPayload,
   FriendRequestPayload,
   IO,
-  NotificationPayload
+  NotificationPayload,
+  ServerToClientEvents,
 } from "../types/socketTypes";
 
 class SocketService {
@@ -38,6 +39,10 @@ class SocketService {
   static sendFriendAccepted(userId: string, payload: FriendAcceptedPayload): void {
     const socketId = this.userSocketMap.get(userId);
     if (socketId) this.io.to(socketId).emit("friend:accepted", payload);
+  }
+
+  static emitToRoom(event: keyof ServerToClientEvents, room: string, payload: unknown): void {
+    this.io.to(room).emit(event, payload);
   }
 }
 
