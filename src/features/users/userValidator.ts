@@ -43,3 +43,12 @@ export const updateSettingsSchema = z.object({
       message: "Send at least one setting to update",
     }),
 });
+
+
+export const listUsersQuerySchema = z.object({
+  query: z.object({
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(50).optional().default(10),
+    search: z.string().optional(), 
+  }),
+});
