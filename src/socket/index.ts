@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
+import User from "../models/User";
 import type {
   ClientToServerEvents,
   InterServerEvents,
@@ -30,8 +31,18 @@ export const initSocket = (httpServer: HttpServer): void => {
 
     try {
       const decoded = verifyAuthToken(token);
-      socket.data.userId = decoded.id;
-      next();
+      User.findById(decoded.id)
+        .select("role accountStatus")
+        .then((user) => {
+          if (!user || user.accountStatus !== "active") {
+            return next(createSocketAuthError("User account is not active", "INVALID_TOKEN"));
+          }
+
+          socket.data.userId = decoded.id;
+          socket.data.role = user.role;
+          return next();
+        })
+        .catch(() => next(createSocketAuthError("Invalid token", "INVALID_TOKEN")));
     } catch {
       next(createSocketAuthError("Invalid token", "INVALID_TOKEN"));
     }

@@ -1,6 +1,41 @@
 import { Server, Socket } from "socket.io";
 import { NotificationType } from "../models/Notification";
 
+export type VoiceChannelStatus = "active" | "ended";
+
+export interface VoiceChannelParticipantPayload {
+  _id: string;
+  user: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+  joinedAt: Date;
+  isMuted: boolean;
+  isDeafened: boolean;
+}
+
+export interface VoiceChannelPayload {
+  _id: string;
+  title: string;
+  category: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
+  createdBy: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+  participants: VoiceChannelParticipantPayload[];
+  status: VoiceChannelStatus;
+  endedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  participantCount: number;
+}
+
 export interface NotificationPayload {
   type: NotificationType;
   fromUser: {
@@ -40,6 +75,18 @@ export interface ServerToClientEvents {
   "notification:new": (payload: NotificationPayload) => void;
   "friend:request": (payload: FriendRequestPayload) => void;
   "friend:accepted": (payload: FriendAcceptedPayload) => void;
+  "voice:stateChanged": (payload: VoiceChannelPayload) => void;
+  "voice:participantJoined": (payload: {
+    channelId: string;
+    participant: VoiceChannelParticipantPayload["user"];
+    participantCount: number;
+  }) => void;
+  "voice:participantLeft": (payload: {
+    channelId: string;
+    participantId: string;
+    participantCount: number;
+  }) => void;
+  "voice:channelEnded": (payload: VoiceChannelPayload) => void;
   // chat events
   "chat:newMessage": (message: any) => void;
   "chat:userTyping": (payload: { userId: string }) => void;
@@ -49,6 +96,9 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   "notification:markRead": (notificationId: string) => void;
+  "voice:join": (channelId: string) => void;
+  "voice:leave": (channelId: string) => void;
+  "voice:end": (channelId: string) => void;
   // chat events from client
   "chat:sendMessage": (data: {
     recipientId: string;
@@ -70,6 +120,7 @@ export interface InterServerEvents {}
 
 export interface SocketData {
   userId: string;
+  role?: string;
 }
 
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
