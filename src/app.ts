@@ -6,6 +6,7 @@ import { errorHandler } from "./utils/errorHandler";
 import authRoutes from "./features/auth/authRoutes";
 import userRoutes from "./features/users/userRoutes";
 import postRoutes from "./features/posts/postRoutes";
+import friendRoutes from "./features/friends/friendRoutes"
 
 const app: Application = express();
 
@@ -17,7 +18,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/v1/posts", postRoutes);
-
+app.use("/api/friends", friendRoutes)
 app.use(notFound);
 
 app.use(errorHandler);
