@@ -13,15 +13,38 @@ export const getOrCreateConversation = async (userId1: string, userId2: string) 
   return conversation;
 };
 
-export const sendMessage = async (senderId: string, recipientId: string, content: string) => {
-  if (!content.trim()) {
-    throw new Error("Message content cannot be empty");
+type MediaInput = {
+  url: string;
+  publicId: string;
+  mimeType?: string;
+};
+
+export const sendMessage = async (
+  senderId: string,
+  recipientId: string,
+  content?: string,
+  media?: MediaInput
+) => {
+  const normalizedContent = content?.trim() ?? "";
+
+  if (!normalizedContent && !media) {
+    throw new Error("Message content or media is required");
   }
+
   const conversation = await getOrCreateConversation(senderId, recipientId);
   const message = await Message.create({
     conversation: conversation._id,
     sender: senderId,
-    content,
+    recipient: recipientId,
+    content: normalizedContent,
+    type: media ? "image" : "text",
+    ...(media
+      ? {
+          mediaUrl: media.url,
+          mediaPublicId: media.publicId,
+          mediaMimeType: media.mimeType,
+        }
+      : {}),
   });
   // populate sender info so consumers (sockets/notifications) have user data
   await message.populate<{ sender: { _id: string; username: string; avatar?: string } }>(

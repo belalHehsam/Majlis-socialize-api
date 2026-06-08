@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as chatController from "./chatController";
 import { authorize } from "../../middlewares/authMiddleware";
 import { validate } from "../../middlewares/validateMiddleware";
+import upload from "../../middlewares/uploadMiddleware";
 import { sendMessageSchema, getMessagesSchema } from "./chatValidator";
 const router = Router();
 
@@ -14,6 +15,11 @@ router.get(
   validate(getMessagesSchema),
   chatController.getMessages
 );
-router.post("/messages", validate(sendMessageSchema), chatController.sendMessage);
+router.post(
+  "/messages",
+  upload.single("media"),
+  validate(sendMessageSchema),
+  chatController.sendMessage
+);
 router.patch("/conversations/:conversationId/read", chatController.markConversationAsRead);
 export default router;

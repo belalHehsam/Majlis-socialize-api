@@ -3,7 +3,7 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
 export const sendMessageSchema = z.object({
   body: z.object({
     recipientId: objectId,
-    content: z.string().trim().min(1).max(2000),
+    content: z.string().trim().min(1).max(2000).optional(),
   }),
 });
 export const getMessagesSchema = z.object({
