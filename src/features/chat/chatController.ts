@@ -4,6 +4,7 @@ import * as chatService from "./chatService";
 import { AppError } from "../../utils/appError";
 import jsend from "../../utils/jsend";
 import cloudinary from "../../config/cloudinary-config";
+import SocketService from "../../socket/socketService";
 
 const uploadMediaToCloudinary = async (file: Express.Multer.File) => {
   return await new Promise<{
@@ -57,6 +58,42 @@ export const sendMessage = async (req: Request, res: Response) => {
         }
       : undefined
   );
+
+  // 🔥 broadcast new message via Socket.IO to the room
+  const messageConversationId = message.conversation.toString();
+  SocketService.emitToRoom("chat:newMessage", messageConversationId, message);
+
+  // 🔔 offline notification if the recipient is not online
+  if (!SocketService.isOnline(recipientId)) {
+    const sender = (message as any).sender || { _id: req.user.id };
+    const senderObjectId = sender._id ?? req.user.id;
+    const senderIdStr = senderObjectId.toString();
+    const messageId = message._id.toString();
+    const previewContent = message.type === "image" ? "Image attachment" : message.content;
+
+    SocketService.notifyUser(recipientId, {
+      type: "NEW_MESSAGE",
+      fromUser: {
+        _id: senderIdStr,
+        username: sender.username,
+        avatar: sender.avatar,
+      },
+      conversationId: messageConversationId,
+      messageId,
+      message: {
+        _id: messageId,
+        content: previewContent,
+        sender: senderIdStr,
+        recipient: recipientId,
+        conversation: messageConversationId,
+        type: message.type,
+        mediaUrl: message.mediaUrl,
+        mediaMimeType: message.mediaMimeType,
+        createdAt: message.createdAt,
+      },
+      createdAt: message.createdAt,
+    });
+  }
 
   res.status(201).json(
     jsend.success({
