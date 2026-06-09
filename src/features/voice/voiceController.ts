@@ -61,3 +61,13 @@ export const endVoiceChannel = async (req: Request, res: Response) => {
     })
   );
 };
+
+export const listCategories = async (req: Request, res: Response) => {
+  const categories = await voiceService.listCategories();
+  res.status(200).json(
+    jsend.success({
+      data: categories,
+      message: "Categories retrieved successfully",
+    })
+  );
+};

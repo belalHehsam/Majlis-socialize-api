@@ -5,6 +5,12 @@ export const getOrCreateConversation = async (userId1: string, userId2: string) 
   const participants = [userId1, userId2].sort();
   let conversation = await Conversation.findOne({
     participants: { $all: participants, $size: 2 },
+  }).populate("participants", {
+    username: 1,
+    displayName: 1,
+    avatar: 1,
+    bio: 1,
+    lastLoginAt: 1,
   });
   if (!conversation) {
     conversation = new Conversation({ participants });
@@ -83,7 +89,13 @@ export const getUserConversations = async (userId: string) => {
   return Conversation.find({
     participants: userId,
   })
-    .populate("participants", "name profileImage")
+    .populate("participants", {
+      username: 1,
+      displayName: 1,
+      avatar: 1,
+      bio: 1,
+      lastLoginAt: 1,
+    })
     .populate("lastMessage")
     .sort({
       lastMessageAt: -1,

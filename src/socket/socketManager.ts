@@ -22,7 +22,7 @@ export const SocketManager = (io: IO): void => {
     // registerFriendHandlers(socket); // mostly would be removed
 
     socket.on("disconnect", () => {
-      SocketService.removeUser(userId);
+      SocketService.removeUserSocket(userId, socket.id);
       console.log(`Client disconnected: ${socket.id}`);
     });
   });
