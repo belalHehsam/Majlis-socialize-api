@@ -1,6 +1,6 @@
 import { Server, Socket } from "socket.io";
-import { NotificationType } from "../models/Notification";
 
+<<<<<<< HEAD
 export type VoiceChannelStatus = "active" | "ended";
 
 export interface VoiceChannelParticipantPayload {
@@ -36,40 +36,48 @@ export interface VoiceChannelPayload {
   participantCount: number;
 }
 
-export interface NotificationPayload {
-  type: NotificationType;
-  fromUser: {
+type BaseNotificationPayload = {
+  _id: string;
+  sender: {
     _id: string;
     username: string;
     avatar?: string;
   };
-  postId?: string;
-  // optional message/conversation fields for chat notifications
-  messageId?: string;
-  conversationId?: string;
-  message?: {
-    _id: string;
-    content: string;
-    sender: { _id: string; username?: string; avatar?: string } | string;
-    recipient?: string;
-    conversation: string;
-    type?: "text" | "image";
-    mediaUrl?: string;
-    mediaMimeType?: string;
-    createdAt: Date;
-  };
+  isRead: boolean;
   createdAt: Date;
-}
+};
 
-export interface FriendRequestPayload {
-  fromUser: { _id: string; username: string; avatar?: string };
-  createdAt: Date;
-}
+export type NotificationPayload =
+  | (BaseNotificationPayload & { type: "like"; post: { _id: string } })
+  | (BaseNotificationPayload & { type: "comment"; post: { _id: string }; commentText?: string })
+  | (BaseNotificationPayload & { type: "friend_request" | "friend_accept" })
+  | {
+      type: "NEW_MESSAGE";
+      fromUser: { _id: string; username: string; avatar?: string };
+      postId?: string;
+      messageId?: string;
+      conversationId?: string;
+      message?: {
+        _id: string;
+        content: string;
+        sender: { _id: string; username?: string; avatar?: string } | string;
+        recipient?: string;
+        conversation: string;
+        type?: "text" | "image";
+        mediaUrl?: string;
+        mediaMimeType?: string;
+        createdAt: Date;
+      };
+      createdAt: Date;
+    };
 
-export interface FriendAcceptedPayload {
+export type FriendRequestPayload = {
   fromUser: { _id: string; username: string; avatar?: string };
-  createdAt: Date;
-}
+};
+
+export type FriendAcceptedPayload = {
+  fromUser: { _id: string; username: string; avatar?: string };
+};
 
 export interface ServerToClientEvents {
   "notification:new": (payload: NotificationPayload) => void;
