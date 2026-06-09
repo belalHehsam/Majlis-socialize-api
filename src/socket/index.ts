@@ -23,19 +23,17 @@ export const initSocket = (httpServer: HttpServer): void => {
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token as string | undefined;
-    socket.data.userId = token ?? "dummy";
-
     if (!token) {
       return next(createSocketAuthError("No token provided", "MISSING_TOKEN"));
     }
 
-    // try {
-    //   const decoded = verifyAuthToken(token);
-    //   socket.data.userId = decoded.id;
+    try {
+      const decoded = verifyAuthToken(token);
+      socket.data.userId = decoded.id;
       next();
-    // } catch {
-    //   next(createSocketAuthError("Invalid token", "INVALID_TOKEN"));
-    // }
+    } catch {
+      next(createSocketAuthError("Invalid token", "INVALID_TOKEN"));
+    }
   });
 
   SocketService.init(io);

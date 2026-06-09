@@ -1,9 +1,4 @@
-import type {
-  FriendAcceptedPayload,
-  FriendRequestPayload,
-  IO,
-  NotificationPayload
-} from "../types/socketTypes";
+import type { IO, NotificationPayload } from "../types/socketTypes";
 
 class SocketService {
   private static io: IO;
@@ -30,14 +25,20 @@ class SocketService {
     if (socketId) this.io.to(socketId).emit("notification:new", payload);
   }
 
-  static sendFriendRequest(userId: string, payload: FriendRequestPayload): void {
+  static sendFriendRequest(
+    userId: string,
+    payload: Extract<NotificationPayload, { type: "friend_request" }>
+  ): void {
     const socketId = this.userSocketMap.get(userId);
     if (socketId) this.io.to(socketId).emit("friend:request", payload);
   }
 
-  static sendFriendAccepted(userId: string, payload: FriendAcceptedPayload): void {
+  static sendFriendAccepted(
+    userId: string,
+    payload: Extract<NotificationPayload, { type: "friend_accept" }>
+  ): void {
     const socketId = this.userSocketMap.get(userId);
-    if (socketId) this.io.to(socketId).emit("friend:accepted", payload);
+    if (socketId) this.io.to(socketId).emit("friend:accept", payload);
   }
 }
 

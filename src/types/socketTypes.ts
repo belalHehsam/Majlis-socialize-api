@@ -1,31 +1,25 @@
 import { Server, Socket } from "socket.io";
-import { NotificationType } from "../models/Notification";
 
-export interface NotificationPayload {
-  type: NotificationType;
-  fromUser: {
+type BaseNotificationPayload = {
+  _id: string;
+  sender: {
     _id: string;
     username: string;
     avatar?: string;
   };
-  postId?: string;
+  isRead: boolean;
   createdAt: Date;
-}
+};
 
-export interface FriendRequestPayload {
-  fromUser: { _id: string; username: string; avatar?: string };
-  createdAt: Date;
-}
-
-export interface FriendAcceptedPayload {
-  fromUser: { _id: string; username: string; avatar?: string };
-  createdAt: Date;
-}
+export type NotificationPayload =
+  | (BaseNotificationPayload & { type: "like"; post: { _id: string } })
+  | (BaseNotificationPayload & { type: "comment"; post: { _id: string }; commentText?: string })
+  | (BaseNotificationPayload & { type: "friend_request" | "friend_accept" });
 
 export interface ServerToClientEvents {
   "notification:new": (payload: NotificationPayload) => void;
-  "friend:request": (payload: FriendRequestPayload) => void;
-  "friend:accepted": (payload: FriendAcceptedPayload) => void;
+  "friend:request": (payload: Extract<NotificationPayload, { type: "friend_request" }>) => void;
+  "friend:accept": (payload: Extract<NotificationPayload, { type: "friend_accept" }>) => void;
 }
 
 export interface ClientToServerEvents {
