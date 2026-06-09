@@ -6,9 +6,9 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "username": "newuser",
+  "username": "test",
   "displayName": "New User",
-  "email": "newuser@example.com",
+  "email": "test@example.com",
   "password": "Password123",
   "confirmPassword": "Password123"
 }

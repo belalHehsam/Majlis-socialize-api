@@ -87,6 +87,10 @@ export interface ServerToClientEvents {
     participantCount: number;
   }) => void;
   "voice:channelEnded": (payload: VoiceChannelPayload) => void;
+  "voice:signal:offer": (payload: { fromUserId: string; sdp: any }) => void;
+  "voice:signal:answer": (payload: { fromUserId: string; sdp: any }) => void;
+  "voice:signal:ice": (payload: { fromUserId: string; candidate: any }) => void;
+  "voice:error": (payload: { channelId: string; message: string }) => void;
   // chat events
   "chat:newMessage": (message: any) => void;
   "chat:userTyping": (payload: { userId: string }) => void;
@@ -99,6 +103,11 @@ export interface ClientToServerEvents {
   "voice:join": (channelId: string) => void;
   "voice:leave": (channelId: string) => void;
   "voice:end": (channelId: string) => void;
+  "voice:mute": (channelId: string, isMuted: boolean) => void;
+  "voice:deafen": (channelId: string, isDeafened: boolean) => void;
+  "voice:signal:offer": (payload: { targetUserId: string; channelId: string; sdp: any }) => void;
+  "voice:signal:answer": (payload: { targetUserId: string; channelId: string; sdp: any }) => void;
+  "voice:signal:ice": (payload: { targetUserId: string; channelId: string; candidate: any }) => void;
   // chat events from client
   "chat:sendMessage": (data: {
     recipientId: string;
