@@ -16,8 +16,17 @@ connectDB()
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
     });
+
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(`Port ${PORT} is already in use. Exiting so the process manager can retry.`);
+        process.exit(1);
+      }
+      throw err;
+    });
   })
   .catch((err: Error) => {
     console.error(" Failed to connect to database:", err.message);
     process.exit(1);
   });
+

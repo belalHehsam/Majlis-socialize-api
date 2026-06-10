@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
+import User from "../models/User";
 import type {
   ClientToServerEvents,
   InterServerEvents,
@@ -23,19 +24,28 @@ export const initSocket = (httpServer: HttpServer): void => {
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token as string | undefined;
-    socket.data.userId = token ?? "dummy";
 
     if (!token) {
       return next(createSocketAuthError("No token provided", "MISSING_TOKEN"));
     }
 
-    // try {
-    //   const decoded = verifyAuthToken(token);
-    //   socket.data.userId = decoded.id;
-      next();
-    // } catch {
-    //   next(createSocketAuthError("Invalid token", "INVALID_TOKEN"));
-    // }
+    try {
+      const decoded = verifyAuthToken(token);
+      User.findById(decoded.id)
+        .select("role accountStatus")
+        .then((user) => {
+          if (!user || user.accountStatus !== "active") {
+            return next(createSocketAuthError("User account is not active", "INVALID_TOKEN"));
+          }
+
+          socket.data.userId = decoded.id;
+          socket.data.role = user.role;
+          return next();
+        })
+        .catch(() => next(createSocketAuthError("Invalid token", "INVALID_TOKEN")));
+    } catch {
+      next(createSocketAuthError("Invalid token", "INVALID_TOKEN"));
+    }
   });
 
   SocketService.init(io);
