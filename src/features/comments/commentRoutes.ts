@@ -33,7 +33,7 @@ router.post(
     asyncWrapper(createComment)
 );
 
-router.put(
+router.patch(
     "/:id",
     authorize,
     validate(updateCommentSchema),

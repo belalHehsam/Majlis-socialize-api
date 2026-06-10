@@ -127,7 +127,7 @@ export const getCommentById = async (
 
 /**
  * @desc    Update own comment
- * @route   PUT /api/v1/comments/:id
+ * @route   PATCH /api/v1/comments/:id
  * @access  Private
  */
 export const updateComment = async (
@@ -162,7 +162,7 @@ export const updateComment = async (
 };
 
 /**
- * @desc    Delete own comment
+ * @desc    Delete own comment or comment on own post
  * @route   DELETE /api/v1/comments/:id
  * @access  Private
  */
@@ -181,8 +181,14 @@ export const deleteComment = async (
         return next(new AppError("Comment not found", 404));
     }
 
-    if (String(comment.author) !== req.user.id) {
-        return next(new AppError("You can only delete your own comments", 403));
+    const post = await Post.findById(comment.post).select("author");
+    const isCommentAuthor = String(comment.author) === req.user.id;
+    const isPostAuthor = post ? String(post.author) === req.user.id : false;
+
+    if (!isCommentAuthor && !isPostAuthor) {
+        return next(
+            new AppError("You can only delete your own comments or comments on your own posts", 403)
+        );
     }
 
     const postId = comment.post;
