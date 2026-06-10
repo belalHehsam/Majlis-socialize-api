@@ -498,7 +498,7 @@ export const getHomeFeed = async (
 
   const aggregatePosts = await Post.aggregate(features.pipleLine);
 
-  const totalApprovedPosts = await Post.countDocuments({ moderationStatus: "approved" });
+  const totalApprovedPosts = await Post.countDocuments(matchCriteria);
 
   const pagination = features.buildPagination(totalApprovedPosts, aggregatePosts.length);
 
