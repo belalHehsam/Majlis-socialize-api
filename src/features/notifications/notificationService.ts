@@ -104,7 +104,7 @@ export const getUserNotifications = async (
       total,
       page: Number(queryOptions.page) || 1,
       limit: Number(queryOptions.limit) || 10,
-      totalPages: Math.ceil(total / (Number(queryOptions.limit) || 100)),
+      totalPages: Math.ceil(total / (Number(queryOptions.limit) || 10)),
     },
   };
 };

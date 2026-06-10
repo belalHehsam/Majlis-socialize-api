@@ -101,7 +101,7 @@ export async function seedTestNotificationsIfNeeded(userId: string, force: boole
       post = await Post.create({
         author: postAuthor._id,
         content: "Reflecting on today's Quran verse. Beautiful reminder for all of us.",
-        category: "quran",
+        tags: ["quran"],
       });
     }
 

@@ -1,0 +1,32 @@
+**Great job on this PR! The implementation is solid, the Zod validations are very clean, and adding the Mongoose compound indexes is a great touch for performance. I just have a few suggestions to make this even better:**
+
+### 1. Missing Notification Trigger (Important)
+Currently, the `createComment` controller successfully increments the `commentsCount` and saves the comment, but it does not notify the post owner. 
+Since we have a notification system, we should trigger a notification to the post owner when someone comments on their post (unless the commenter is the post owner themselves). 
+**Note:** I'm not sure who should handle this specific integration—whether it should be you (@ahmedalaa417) or Ammar. Please coordinate to see who should add it.
+
+```typescript
+// Inside createComment, after saving the comment:
+if (String(post.author) !== req.user.id) {
+    // Trigger notification service here
+}
+```
+
+### 2. Delete Permissions for Post Owner
+In the `deleteComment` controller, we currently only allow the **Comment Author** to delete the comment:
+```typescript
+if (String(comment.author) !== req.user.id) {
+    return next(new AppError("You can only delete your own comments", 403));
+}
+```
+**Suggestion:** In most social applications, the **Post Owner** should also have the authority to delete any comments on their own post (for moderation purposes). Consider fetching the post and allowing the deletion if `req.user.id` matches either the `comment.author` OR the `post.author`.
+
+### 3. REST Semantics: PUT vs PATCH
+In `commentRoutes.ts`, the update route is defined as a `PUT` request:
+```typescript
+router.put("/:id", authorize, validate(updateCommentSchema), asyncWrapper(updateComment));
+```
+**Suggestion:** Since we are only partially updating the resource (specifically, just the `content` field), the RESTful best practice is to use `router.patch` instead of `PUT` (I noticed you had it as PATCH in the commented-out code earlier). 
+
+### 4. Cascade Delete Reminder (Side Note)
+Just a quick reminder for whenever we handle deleting a **Post**: please make sure there's a Mongoose `pre('remove')` middleware or a manual cleanup query on the Post model to delete all associated comments so we don't end up with orphaned comments in the database.
