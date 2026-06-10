@@ -1,0 +1,29 @@
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMjFiYzNkYWU5ZGVmNGFkNTUzMGQyMCIsImlhdCI6MTc4MDU5NTgwMywiZXhwIjoxNzgxMjAwNjAzLCJhdWQiOiJteS1mcm9udGVuZCIsImlzcyI6Im15LWJhY2tlbmQifQ.aRQwNhRz7QimZtQwXNJYi-JkEWT-T0KZF1hLcJcDziA
+
+### Register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "test",
+  "displayName": "New User",
+  "email": "test@example.com",
+  "password": "Password123",
+  "confirmPassword": "Password123"
+}
+
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "Password123"
+}
+
+
+### Get current user
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}

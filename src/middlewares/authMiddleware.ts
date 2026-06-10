@@ -34,6 +34,8 @@ export const authorize = asyncWrapper(async (req: Request, _res: Response, next:
     req.user = {
       id: currentUser._id.toString(),
       role: currentUser.role,
+      username: currentUser.username,  
+      avatar: currentUser.avatar,
     };
 
     return next();

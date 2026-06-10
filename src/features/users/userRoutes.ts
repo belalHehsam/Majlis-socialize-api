@@ -3,10 +3,11 @@ import { authorize } from "../../middlewares/authMiddleware";
 import { validate } from "../../middlewares/validateMiddleware";
 import {
     getMyProfile,
+    listUsers,
     updateMyProfile,
     updateMySettings,
 } from "./userController";
-import { updateProfileSchema, updateSettingsSchema } from "./userValidator";
+import { listUsersQuerySchema, updateProfileSchema, updateSettingsSchema } from "./userValidator";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.patch(
     validate(updateSettingsSchema),
     updateMySettings
 );
+router.get("/", validate(listUsersQuerySchema), listUsers);
 
 export default router;

@@ -50,10 +50,11 @@ export const analyzePost = async (
   next: NextFunction
 ): Promise<void> => {
   const { content, tags } = req.body;
+  const locale = req.headers["accept-language"]?.startsWith("ar") ? "ar" : "en";
 
   let moderationResult;
   try {
-    moderationResult = await moderateContent(content);
+    moderationResult = await moderateContent(content, locale);
   } catch {
     return next(
       new AppError(
@@ -86,7 +87,7 @@ export const analyzePost = async (
 
   let recommendation = null;
   try {
-    recommendation = await getRecommendation(content, tags);
+    recommendation = await getRecommendation(content, tags, locale);
   } catch {
     // Non-blocking
   }

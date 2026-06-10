@@ -1,5 +1,5 @@
 import "express";
-import "multer";
+import type { File as MulterFile } from "multer";
 
 declare global {
   namespace Express {
@@ -7,7 +7,10 @@ declare global {
       user?: {
         id: string;
         role: string;
+        username:string;
+        avatar?:string;
       };
+      file?: MulterFile;
     }
   }
 }
