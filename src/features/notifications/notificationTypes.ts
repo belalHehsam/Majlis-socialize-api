@@ -1,8 +1,6 @@
-import { NotificationType } from "../../models/Notification";
+type BaseCreateData = { recipient: string; sender: string };
 
-export interface NotificationData {
-  recipient: string;
-  sender: string;
-  type: NotificationType;
-  post?: string;
-}
+export type CreateNotificationData =
+  | (BaseCreateData & { type: "like"; post: string })
+  | (BaseCreateData & { type: "comment"; post: string; commentText?: string })
+  | (BaseCreateData & { type: "friend_request" | "friend_accept" });

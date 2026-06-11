@@ -23,3 +23,7 @@ Thumbs.db
 
 # Uploads (local)
 uploads/
+
+AMMAR.md
+*.png
+.cspell
