@@ -191,27 +191,28 @@ export async function seedTestNotificationsIfNeeded(userId: string, force: boole
       // Update createdAt directly bypassing mongoose timestamp middleware
       await Notification.updateOne({ _id: notification._id }, { $set: { createdAt: customDate } });
 
-      // Emit via socket payload
-      const socketPayload: NotificationPayload = {
-        _id: notification._id.toString(),
-        type: item.type as any,
-        sender: {
-          _id: sender._id.toString(),
-          username: sender.username,
-          avatar: sender.avatar,
-        },
-        isRead: item.isRead,
-        createdAt: customDate,
-        ...(item.type === "like" || item.type === "comment"
-          ? { post: { _id: post._id.toString() } }
-          : {}),
-        ...(item.type === "comment" ? { commentText: item.commentText } : {}),
-      } as any;
+      // Emit via socket payload only if the notification is unread
+      if (!item.isRead) {
+        const socketPayload: NotificationPayload = {
+          _id: notification._id.toString(),
+          type: item.type as any,
+          sender: {
+            _id: sender._id.toString(),
+            username: sender.username,
+            avatar: sender.avatar,
+          },
+          isRead: item.isRead,
+          createdAt: customDate,
+          ...(item.type === "like" || item.type === "comment"
+            ? { post: { _id: post._id.toString() } }
+            : {}),
+          ...(item.type === "comment" ? { commentText: item.commentText } : {}),
+        } as any;
 
-      SocketService.notifyUser(userId, socketPayload);
+        SocketService.notifyUser(userId, socketPayload);
+      }
     }
 
-    console.log(`Seeded 20 realistic test notifications for user: ${userId}`);
   } catch (error) {
     console.error("Failed to seed test notifications:", error);
   }
@@ -219,17 +220,14 @@ export async function seedTestNotificationsIfNeeded(userId: string, force: boole
 
 export const SocketManager = (io: IO): void => {
   io.on("connection", (socket) => {
-    console.log(`New client connected: ${socket.id}`);
     const { userId } = socket.data;
 
     SocketService.registerUser(userId, socket.id);
-    console.log(`User connected: ${userId}`);
 
     registerNotificationHandlers(socket);
 
     socket.on("disconnect", () => {
       SocketService.removeUser(userId);
-      console.log(`Client disconnected: ${socket.id}`);
     });
   });
 };
