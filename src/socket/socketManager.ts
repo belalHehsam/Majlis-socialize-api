@@ -232,8 +232,6 @@ export const SocketManager = (io: IO): void => {
 
     registerVoiceHandlers(io, socket);
 
-    // registerFriendHandlers(socket); // mostly would be removed
-
     socket.on("disconnect", () => {
       SocketService.removeUserSocket(userId, socket.id);
       console.log(`Client disconnected: ${socket.id}`);

@@ -73,13 +73,12 @@ type BaseNotificationPayload = {
 export type NotificationPayload =
   | (BaseNotificationPayload & { type: "like"; post: { _id: string } })
   | (BaseNotificationPayload & { type: "comment"; post: { _id: string }; commentText?: string })
-  | (BaseNotificationPayload & { type: "friend_request" | "friend_accept" })
+  | (BaseNotificationPayload & { type: "friend_request" })
+  | (BaseNotificationPayload & { type: "friend_accept" })
   | ChatNotificationPayload;
 
 export interface ServerToClientEvents {
   "notification:new": (payload: NotificationPayload) => void;
-  "friend:request": (payload: Extract<NotificationPayload, { type: "friend_request" }>) => void;
-  "friend:accept": (payload: Extract<NotificationPayload, { type: "friend_accept" }>) => void;
   "voice:stateChanged": (payload: VoiceChannelPayload) => void;
   "voice:participantJoined": (payload: {
     channelId: string;

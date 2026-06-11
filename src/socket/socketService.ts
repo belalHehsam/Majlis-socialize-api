@@ -51,25 +51,6 @@ class SocketService {
     }
   }
 
-  static sendFriendRequest(
-    userId: string,
-    payload: Extract<NotificationPayload, { type: "friend_request" }>
-  ): void {
-    const sockets = this.getActiveSockets(userId);
-    for (const socketId of sockets) {
-      this.io.to(socketId).emit("friend:request", payload);
-    }
-  }
-
-  static sendFriendAccepted(
-    userId: string,
-    payload: Extract<NotificationPayload, { type: "friend_accept" }>
-  ): void {
-    const sockets = this.getActiveSockets(userId);
-    for (const socketId of sockets) {
-      this.io.to(socketId).emit("friend:accept", payload);
-    }
-  }
 
   static emitToRoom(event: keyof ServerToClientEvents, room: string, payload: unknown): void {
     this.io.to(room).emit(event, payload);
