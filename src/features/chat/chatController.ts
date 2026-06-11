@@ -72,7 +72,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     const previewContent = message.type === "image" ? "Image attachment" : message.content;
 
     SocketService.notifyUser(recipientId, {
-      type: "NEW_MESSAGE",
+      type: "new_message",
       fromUser: {
         _id: senderIdStr,
         username: sender.username,
