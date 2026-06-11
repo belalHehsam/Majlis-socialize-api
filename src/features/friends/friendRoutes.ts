@@ -6,8 +6,9 @@ import {
   cancelFriendRequest,
   acceptFriendRequest,
   rejectFriendRequest,
+  listFriends,
 } from "./friendController";
-import { sendRequestSchema, requestIdParamSchema } from "./friendValidator";
+import { sendRequestSchema, requestIdParamSchema, listFriendsQuerySchema } from "./friendValidator";
 
 const router = Router();
 
@@ -20,5 +21,7 @@ router.delete("/request/:requestId/cancel", validate(requestIdParamSchema), canc
 router.patch("/request/:requestId/accept", validate(requestIdParamSchema), acceptFriendRequest);
 
 router.delete("/request/:requestId/reject", validate(requestIdParamSchema), rejectFriendRequest);
+
+router.get("/", validate(listFriendsQuerySchema), listFriends);
 
 export default router;
