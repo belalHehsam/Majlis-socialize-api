@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authorize } from "../../middlewares/authMiddleware";
+import { validate } from "../../middlewares/validateMiddleware";
 import {
   getNotifications,
   markNotificationRead,
@@ -7,11 +8,12 @@ import {
   getUnreadCount,
   triggerTestNotifications,
 } from "./notificationController";
+import { getNotificationsSchema } from "./notificationValidator";
 
 const router = Router();
 router.use(authorize);
 
-router.get("/", getNotifications);
+router.get("/", validate(getNotificationsSchema), getNotifications);
 router.get("/unread-count", getUnreadCount);
 router.patch("/read-all", markAllNotificationsRead);
 router.patch("/:id/read", markNotificationRead);

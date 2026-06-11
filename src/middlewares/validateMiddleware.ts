@@ -1,15 +1,19 @@
 import { NextFunction, Request, Response } from "express";
-import { ZodAny, ZodError } from "zod";
+import { ZodError, ZodObject } from "zod";
 import jsend from "../utils/jsend";
 
-export const validate = (schema: ZodAny) => {
+export const validate = (schema: ZodObject<any, any>) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = schema.parse({
         body: req.body,
         params: req.params,
         query: req.query,
-      });
+      }) as {
+        body?: any;
+        params?: any;
+        query?: any;
+      };
 
       if (validatedData.body) {
         req.body = validatedData.body;
@@ -18,10 +22,6 @@ export const validate = (schema: ZodAny) => {
       if (validatedData.params) {
         req.params = validatedData.params;
       }
-
-      // Do not do this:
-      // req.query = validatedData.query;
-      // In your Express version, req.query is read-only.
 
       return next();
     } catch (error) {
