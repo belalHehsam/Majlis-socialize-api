@@ -107,3 +107,46 @@ export const rejectFriendRequest = asyncWrapper(async (req: Request, res: Respon
 
   return res.status(200).json(jsend.success(null));
 });
+
+export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
+  const user = req.user!;
+  
+  const page = Number(req.query.page)||1;
+  const limit = Number(req.query.limit)||10;
+  const skip = (page - 1) * limit;
+
+  const friendships = await Friend.find({
+    status: "accepted",
+    $or: [{ requester: user.id }, { recipient: user.id }],
+  })
+    .populate("requester", "username avatar")
+    .populate("recipient", "username avatar")
+    .skip(skip)
+    .limit(limit)
+    .lean(); 
+
+  const total = await Friend.countDocuments({
+    status: "accepted",
+    $or: [{ requester: user.id }, { recipient: user.id }],
+  });
+
+  
+  const friends = friendships.map((friendship: any) => {
+    if (friendship.requester._id.toString() === user.id) {
+      return friendship.recipient;
+    }
+    return friendship.requester;
+  });
+
+  return res.status(200).json(
+    jsend.success({
+      friends,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
