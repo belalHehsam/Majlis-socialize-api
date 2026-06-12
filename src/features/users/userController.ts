@@ -278,34 +278,6 @@ export const updateMySettings = asyncWrapper(
   }
 );
 
-export const deactivateMyAccount = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return next(new AppError("You are not logged in", 401));
-    }
-
-    const user = await User.findById(req.user.id).select("+password");
-
-    if (!user) {
-      return next(new AppError("User not found", 404));
-    }
-
-    const isPasswordValid = await user.comparePassword(req.body.password);
-
-    if (!isPasswordValid) {
-      return next(new AppError("Password is incorrect", 401));
-    }
-
-    user.accountStatus = "suspended";
-    await user.save({ validateBeforeSave: false });
-
-    return res.status(200).json(
-      jsend.success({
-        message: "Account deactivated successfully. Please log in again to reactivate or contact support.",
-      })
-    );
-  }
-);
 
 export const listUsers = asyncWrapper(async (req: Request, res: Response) => {
   const user = req.user!;

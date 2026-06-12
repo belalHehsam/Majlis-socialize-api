@@ -10,7 +10,9 @@ const usernameSchema = z
     "username can only contain letters, numbers, and underscores"
   );
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID format");
+const objectIdSchema = z
+  .string()
+  .regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID format");
 
 export const updateProfileSchema = z.object({
   body: z
@@ -47,14 +49,6 @@ export const updateSettingsSchema = z.object({
     .refine((data) => Object.keys(data).length > 0, {
       message: "Send at least one setting to update",
     }),
-});
-
-export const deactivateAccountSchema = z.object({
-  body: z
-    .object({
-      password: z.string().min(1, "password is required"),
-    })
-    .strict(),
 });
 
 export const userIdParamSchema = z.object({
