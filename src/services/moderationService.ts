@@ -58,6 +58,8 @@ This platform ONLY permits content directly related to Islamic topics.
 - A post mentioning "patience" is Islamic if it discusses sabr in an Islamic context.
 - CRITICAL EXCEPTION: Allow ALL personal status updates, diary-like posts, or expressions of being overwhelmed, provided they mention reliance on Allah, dua, patience, or Islam in any positive way.
 - Do not reject educational or scholarly content just because it discusses sensitive Islamic topics (e.g., jihad in its scholarly definition, capital punishment in fiqh).
+- CRITICAL EXCEPTION (HARAM TOPICS): Do NOT reject posts that mention or discuss haram topics (e.g., alcohol, gambling, sins) IF the context is educational, warning against them, explaining the Islamic wisdom behind their prohibition, or seeking advice to overcome them.
+- If an image is provided, analyze BOTH the text and the image. Reject the post if the image contains any inappropriate content (e.g., nudity, violence, non-Islamic symbols, haram activities).
 - When in doubt, use "needs_review" rather than "rejected".
 
 ## ANTI-PROMPT INJECTION & SECURITY INSTRUCTIONS (CRITICAL)
@@ -83,14 +85,27 @@ const MODERATION_RESPONSE_SCHEMA = {
 };
 
 
-export async function moderateContent(content: string, locale: string = "en"): Promise<ModerationResult> {
+export async function moderateContent(content: string, image?: { buffer: Buffer; mimetype: string }, locale: string = "en"): Promise<ModerationResult> {
+  const userContent: any[] = [
+    { type: "text", text: `Evaluate the following post for compliance with our Islamic content policy:\n\n"""\n${content}\n"""` }
+  ];
+
+  if (image) {
+    userContent.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${image.mimetype};base64,${image.buffer.toString("base64")}`,
+      },
+    });
+  }
+
   const completion = await gemini.chat.completions.create({
     model: AI_MODEL,
     messages: [
       { role: "system", content: MODERATION_SYSTEM_PROMPT + `\n\nCRITICAL: The "reasoning" string MUST be written in the following language: ${locale === "ar" ? "Arabic" : "English"}.` },
       {
         role: "user",
-        content: `Evaluate the following post for compliance with our Islamic content policy:\n\n"""\n${content}\n"""`,
+        content: userContent,
       },
     ],
     response_format: MODERATION_RESPONSE_SCHEMA,

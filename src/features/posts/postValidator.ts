@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createPostSchema = z.object({
   body: z
     .object({
-      content: z.string().min(1).max(1000).trim(),
+      content: z.string().min(1).max(3000).trim(),
       tags: z.preprocess(
       (val) => {
         try {
@@ -40,7 +40,7 @@ export const createPostSchema = z.object({
 export const updatePostSchema = z.object({
   body: z
     .object({
-      content: z.string().min(1).max(1000).trim().optional(),
+      content: z.string().min(1).max(3000).trim().optional(),
       tags: z.preprocess(
       (val) => {
         try {
