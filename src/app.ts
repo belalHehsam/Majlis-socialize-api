@@ -7,6 +7,11 @@ import authRoutes from "./features/auth/authRoutes";
 import userRoutes from "./features/users/userRoutes";
 import postRoutes from "./features/posts/postRoutes";
 import friendRoutes from "./features/friends/friendRoutes"
+import notificationRoutes from "./features/notifications/notificationRoutes";
+import chatRoutes from "./features/chat/chatRoutes";
+import voiceRoutes from "./features/voice/voiceRoutes";
+
+// ── Feature Routes ────────────────────────────────────────────────────────────
 
 const app: Application = express();
 
@@ -19,6 +24,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/v1/posts", postRoutes);
 app.use("/api/friends", friendRoutes)
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/chats", chatRoutes);
+app.use("/api/voice-channels", voiceRoutes);
+
 app.use(notFound);
 
 app.use(errorHandler);

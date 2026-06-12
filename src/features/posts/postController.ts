@@ -44,14 +44,24 @@ async function uploadToCloudinary(fileBuffer: Buffer, mimetype: string): Promise
  * @route   POST /api/v1/posts/analyze
  * @access  Private
  */
-export const analyzePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const analyzePost = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { content, tags } = req.body;
+  const locale = req.headers["accept-language"]?.startsWith("ar") ? "ar" : "en";
 
   let moderationResult;
   try {
-    moderationResult = await moderateContent(content);
+    moderationResult = await moderateContent(content, locale);
   } catch {
-    return next(new AppError("Content moderation service is temporarily unavailable. Please try again later.", 503));
+    return next(
+      new AppError(
+        "Content moderation service is temporarily unavailable. Please try again later.",
+        503
+      )
+    );
   }
 
   // If rejected, return 422 immediately
@@ -70,13 +80,14 @@ export const analyzePost = async (req: Request, res: Response, next: NextFunctio
 
   const isFlagged =
     moderationResult.decision === "needs_review" ||
-    (moderationResult.decision === "approved" && moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
+    (moderationResult.decision === "approved" &&
+      moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
 
   const moderationStatus = isFlagged ? "needs_review" : "approved";
 
   let recommendation = null;
   try {
-    recommendation = await getRecommendation(content, tags);
+    recommendation = await getRecommendation(content, tags, locale);
   } catch {
     // Non-blocking
   }
@@ -106,13 +117,17 @@ export const createPost = async (
   const { content, tags, commentsEnabled } = req.body;
   const userId = req.user!.id;
 
-
   let moderationResult;
   try {
     moderationResult = await moderateContent(content);
   } catch {
     // If AI moderation fails, reject to be safe — we don't want unmoderated posts
-    return next(new AppError("Content moderation service is temporarily unavailable. Please try again later.", 503));
+    return next(
+      new AppError(
+        "Content moderation service is temporarily unavailable. Please try again later.",
+        503
+      )
+    );
   }
 
   // Rejected — do NOT save
@@ -132,7 +147,8 @@ export const createPost = async (
   // Determine moderation status
   const isFlagged =
     moderationResult.decision === "needs_review" ||
-    (moderationResult.decision === "approved" && moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
+    (moderationResult.decision === "approved" &&
+      moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
 
   const moderationStatus = isFlagged ? "needs_review" : "approved";
 
@@ -223,17 +239,23 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
  * @route   GET /api/v1/posts/:id
  * @access  Private
  */
-export const getPostById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const post = await Post.findById(req.params.id)
-    .populate("author", "username avatar")
-    .lean();
+export const getPostById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const post = await Post.findById(req.params.id).populate("author", "username avatar").lean();
 
   if (!post) {
     return next(new AppError("Post not found", 404));
   }
 
   // Non-admin users cannot see posts under review
-  if (post.moderationStatus === "needs_review" && req.user?.role !== "admin" && String(post.author._id) !== req.user?.id) {
+  if (
+    post.moderationStatus === "needs_review" &&
+    req.user?.role !== "admin" &&
+    String(post.author._id) !== req.user?.id
+  ) {
     return next(new AppError("Post not found", 404));
   }
 
@@ -245,7 +267,11 @@ export const getPostById = async (req: Request, res: Response, next: NextFunctio
  * @route   PATCH /api/v1/posts/:id
  * @access  Private (owner only)
  */
-export const updatePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updatePost = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const post = await Post.findById(req.params.id);
 
   if (!post) {
@@ -262,7 +288,12 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
     try {
       moderationResult = await moderateContent(req.body.content);
     } catch {
-      return next(new AppError("Content moderation service is temporarily unavailable. Please try again later.", 503));
+      return next(
+        new AppError(
+          "Content moderation service is temporarily unavailable. Please try again later.",
+          503
+        )
+      );
     }
 
     if (moderationResult.decision === "rejected") {
@@ -280,23 +311,20 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
 
     const isFlagged =
       moderationResult.decision === "needs_review" ||
-      (moderationResult.decision === "approved" && moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
+      (moderationResult.decision === "approved" &&
+        moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
 
     post.isFlagged = isFlagged;
     post.moderationStatus = isFlagged ? "needs_review" : "approved";
 
     // Re-generate recommendation for updated content
     try {
-      const recommendation = await getRecommendation(
-        req.body.content,
-        req.body.tags ?? post.tags
-      );
+      const recommendation = await getRecommendation(req.body.content, req.body.tags ?? post.tags);
       post.recommendation = recommendation ?? undefined;
     } catch {
       // Non-blocking
     }
   }
-
 
   if (req.body.content) post.content = req.body.content;
   if (req.body.tags) post.tags = req.body.tags;
@@ -313,7 +341,11 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
  * @route   DELETE /api/v1/posts/:id
  * @access  Private (owner or admin)
  */
-export const deletePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deletePost = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const post = await Post.findById(req.params.id);
 
   if (!post) {
@@ -401,9 +433,14 @@ export const getHomeFeed = async (
   if (!req.user) return next(new AppError("You are not logged in", 401));
 
   const currentUserId = new mongoose.Types.ObjectId(req.user.id);
+  const matchCriteria: Record<string, any> = { moderationStatus: "approved" };
+
+  if (req.query.tag && req.query.tag !== "All") {
+    matchCriteria.tags = req.query.tag;
+  }
 
   const features = new AggregateFeatures(req.query)
-    .match({ moderationStatus: "approved" })
+    .match(matchCriteria)
     .sort({ createdAt: -1 })
     .paginate();
 
@@ -462,91 +499,9 @@ export const getHomeFeed = async (
 
   const aggregatePosts = await Post.aggregate(features.pipleLine);
 
-  const totalApprovedPosts = await Post.countDocuments({ moderationStatus: "approved" });
+  const totalApprovedPosts = await Post.countDocuments(matchCriteria);
 
   const pagination = features.buildPagination(totalApprovedPosts, aggregatePosts.length);
 
   res.status(200).json({ status: "success", data: { posts: aggregatePosts, pagination } });
-
-  // const aggregatedPosts = await Post.aggregate([
-  //   // 1. Filter out flagged posts to enforce moderation safety
-  //   { $match: { moderationStatus: "approved" } },
-
-  //   // 2. Sort chronologically for fresh content delivery
-  //   { $sort: { createdAt: -1 } },
-
-  //   // 3. Execution of precise pagination matching jumps
-  //   { $skip: skip },
-  //   { $limit: limit },
-
-  //   // 4. Populate author metadata from the users collection
-  //   {
-  //     $lookup: {
-  //       from: "users",
-  //       localField: "author",
-  //       foreignField: "_id",
-  //       as: "authorDetails",
-  //     },
-  //   },
-
-  //   { $unwind: "$authorDetails" },
-
-  //   // 5. Query the likes collection to establish current user's reaction state
-  //   {
-  //     $lookup: {
-  //       from: "likes",
-  //       let: { postId: "$_id" },
-  //       pipeline: [
-  //         {
-  //           $match: {
-  //             $expr: {
-  //               $and: [{ $eq: ["$post", "$$postId"] }, { $eq: ["$user", currentUserId] }],
-  //             },
-  //           },
-  //         },
-  //       ],
-  //       as: "currentUserLike",
-  //     },
-  //   },
-
-  //   // 6. Project and format fields to produce a polished payload structure
-  //   {
-  //     $project: {
-  //       _id: 1,
-  //       content: 1,
-  //       image: 1,
-  //       tags: 1,
-  //       likesCount: 1,
-  //       commentsCount: 1,
-  //       commentsEnabled: 1,
-  //       recommendation: 1,
-  //       createdAt: 1,
-  //       updatedAt: 1,
-  //       author: {
-  //         _id: "$authorDetails._id",
-  //         username: "$authorDetails.username",
-  //         avatar: "$authorDetails.avatar",
-  //       },
-  //       // Converts array matches to an instant toggleable boolean flag for TanStack Query
-  //       isLiked: { $gt: [{ $size: "$currentUserLike" }, 0] },
-  //     },
-  //   },
-  // ]);
-
-  // // Retrieve structural diagnostics to guide frontend termination limits
-  // const totalApprovedPosts = await Post.countDocuments({ moderationStatus: "approved" });
-
-  // const hasNextPage = skip + aggregatedPosts.length < totalApprovedPosts;
-
-  // res.status(200).json(
-  //   jsend.success({
-  //     posts: aggregatedPosts,
-  //     pagination: {
-  //       page,
-  //       limit,
-  //       totalResults: totalApprovedPosts,
-  //       hasNextPage,
-  //     },
-  //   })
-  // );
 };

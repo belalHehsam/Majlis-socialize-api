@@ -5,6 +5,7 @@ import jsend from "../../utils/jsend";
 import Friend from "../../models/Friend";
 import SocketService from "../../socket/socketService";
 import User from "../../models/User";
+import { createNotification } from "../notifications/notificationService";
 
 
 export const sendFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
@@ -33,13 +34,10 @@ export const sendFriendRequest = asyncWrapper(async (req: Request, res: Response
     status: "pending",
   });
 
-  SocketService.sendFriendRequest(recipientId, {
-    fromUser: {
-      _id: requesterId,
-      username: user.username,
-      avatar: user.avatar,
-    },
-    createdAt: newRequest.createdAt,
+  await createNotification({
+    recipient: recipientId,
+    sender: requesterId,
+    type: "friend_request",
   });
 
   return res.status(201).json(jsend.success({ friendRequest: newRequest }));
@@ -85,13 +83,10 @@ export const acceptFriendRequest = asyncWrapper(async (req: Request, res: Respon
     avatar?: string;
   };
 
-  SocketService.sendFriendAccepted(populatedRequester._id.toString(), {
-    fromUser: {
-      _id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-    },
-    createdAt: new Date(),
+  await createNotification({
+    recipient: populatedRequester._id.toString(),
+    sender: user.id,
+    type: "friend_accept",
   });
 
   return res.status(200).json(jsend.success({ friendRequest: request }));
