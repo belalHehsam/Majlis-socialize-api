@@ -6,6 +6,7 @@ import { errorHandler } from "./utils/errorHandler";
 import authRoutes from "./features/auth/authRoutes";
 import userRoutes from "./features/users/userRoutes";
 import postRoutes from "./features/posts/postRoutes";
+import commentRoutes from "./features/comments/commentRoutes";
 import friendRoutes from "./features/friends/friendRoutes"
 import notificationRoutes from "./features/notifications/notificationRoutes";
 import chatRoutes from "./features/chat/chatRoutes";
@@ -23,6 +24,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/v1/posts", postRoutes);
+app.use("/api/v1/comments", commentRoutes);
 app.use("/api/friends", friendRoutes)
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chats", chatRoutes);
