@@ -4,6 +4,7 @@ import {AppError} from "../../utils/appError";
 import jsend from "../../utils/jsend";
 import Friend from "../../models/Friend";
 import SocketService from "../../socket/socketService";
+import User from "../../models/User";
 
 
 export const sendFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
@@ -153,6 +154,40 @@ export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
+    })
+  );
+});
+
+
+export const getFriendRequests = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+
+  const requests = await Friend.find({
+    recipient: user.id,
+    status: "pending",
+  }).populate("requester", "name avatar"); 
+
+  return res.status(200).json(
+    jsend.success({
+      data: requests.length,
+      requests,
+    })
+  );
+});
+
+
+export const getFriendSuggestions = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+
+  const suggestions = await User.find({ _id: { $ne: user.id } })
+    .sort({ createdAt: -1 }) 
+    .limit(20) 
+    .select("name avatar createdAt");
+
+  return res.status(200).json(
+    jsend.success({
+      data: suggestions.length,
+      suggestions,
     })
   );
 });
