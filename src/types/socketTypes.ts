@@ -36,24 +36,22 @@ export interface VoiceChannelPayload {
   participantCount: number;
 }
 
-export interface NotificationPayload {
-  type: NotificationType;
+export interface ChatNotificationPayload {
+  type: "new_message";
   fromUser: {
     _id: string;
     username: string;
     avatar?: string;
   };
-  postId?: string;
-  // optional message/conversation fields for chat notifications
-  messageId?: string;
-  conversationId?: string;
-  message?: {
+  conversationId: string;
+  messageId: string;
+  message: {
     _id: string;
     content: string;
-    sender: { _id: string; username?: string; avatar?: string } | string;
-    recipient?: string;
+    sender: string;
+    recipient: string;
     conversation: string;
-    type?: "text" | "image";
+    type: "text" | "image";
     mediaUrl?: string;
     mediaMimeType?: string;
     createdAt: Date;
@@ -61,20 +59,26 @@ export interface NotificationPayload {
   createdAt: Date;
 }
 
-export interface FriendRequestPayload {
-  fromUser: { _id: string; username: string; avatar?: string };
+type BaseNotificationPayload = {
+  _id: string;
+  sender: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+  isRead: boolean;
   createdAt: Date;
-}
+};
 
-export interface FriendAcceptedPayload {
-  fromUser: { _id: string; username: string; avatar?: string };
-  createdAt: Date;
-}
+export type NotificationPayload =
+  | (BaseNotificationPayload & { type: "like"; post: { _id: string } })
+  | (BaseNotificationPayload & { type: "comment"; post: { _id: string }; commentText?: string })
+  | (BaseNotificationPayload & { type: "friend_request" })
+  | (BaseNotificationPayload & { type: "friend_accept" })
+  | ChatNotificationPayload;
 
 export interface ServerToClientEvents {
   "notification:new": (payload: NotificationPayload) => void;
-  "friend:request": (payload: FriendRequestPayload) => void;
-  "friend:accepted": (payload: FriendAcceptedPayload) => void;
   "voice:stateChanged": (payload: VoiceChannelPayload) => void;
   "voice:participantJoined": (payload: {
     channelId: string;
@@ -107,7 +111,11 @@ export interface ClientToServerEvents {
   "voice:deafen": (channelId: string, isDeafened: boolean) => void;
   "voice:signal:offer": (payload: { targetUserId: string; channelId: string; sdp: any }) => void;
   "voice:signal:answer": (payload: { targetUserId: string; channelId: string; sdp: any }) => void;
-  "voice:signal:ice": (payload: { targetUserId: string; channelId: string; candidate: any }) => void;
+  "voice:signal:ice": (payload: {
+    targetUserId: string;
+    channelId: string;
+    candidate: any;
+  }) => void;
   // chat events from client
   "chat:sendMessage": (data: {
     recipientId: string;

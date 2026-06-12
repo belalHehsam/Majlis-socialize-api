@@ -28,7 +28,7 @@ const buildOfflineNotification = (
   const previewContent = message.type === "image" ? "Image attachment" : message.content;
 
   return {
-    type: "NEW_MESSAGE" as const,
+    type: "new_message" as const,
     fromUser: {
       _id: senderIdStr,
       username: sender.username,

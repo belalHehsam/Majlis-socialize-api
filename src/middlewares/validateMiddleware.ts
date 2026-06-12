@@ -1,18 +1,27 @@
-import { ZodObject, ZodError } from "zod";
 import { NextFunction, Request, Response } from "express";
+import { ZodError, ZodObject } from "zod";
 import jsend from "../utils/jsend";
 
-export const validate = (schema: ZodObject) => {
+export const validate = (schema: ZodObject<any, any>) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = schema.parse({
         body: req.body,
         params: req.params,
         query: req.query,
-      }) as any;
+      }) as {
+        body?: any;
+        params?: any;
+        query?: any;
+      };
 
-      if (validatedData.body) req.body = validatedData.body;
-      if (validatedData.params) req.params = validatedData.params;
+      if (validatedData.body) {
+        req.body = validatedData.body;
+      }
+
+      if (validatedData.params) {
+        req.params = validatedData.params;
+      }
 
       return next();
     } catch (error) {
