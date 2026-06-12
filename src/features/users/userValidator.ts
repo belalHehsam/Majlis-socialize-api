@@ -10,6 +10,8 @@ const usernameSchema = z
     "username can only contain letters, numbers, and underscores"
   );
 
+const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID format");
+
 export const updateProfileSchema = z.object({
   body: z
     .object({
@@ -37,6 +39,9 @@ export const updateSettingsSchema = z.object({
       isPrivateProfile: z.boolean().optional(),
       allowFriendRequests: z.boolean().optional(),
       showEmail: z.boolean().optional(),
+      notificationsEnabled: z.boolean().optional(),
+      showOnlineStatus: z.boolean().optional(),
+      allowTagging: z.boolean().optional(),
     })
     .strict()
     .refine((data) => Object.keys(data).length > 0, {
@@ -44,11 +49,24 @@ export const updateSettingsSchema = z.object({
     }),
 });
 
+export const deactivateAccountSchema = z.object({
+  body: z
+    .object({
+      password: z.string().min(1, "password is required"),
+    })
+    .strict(),
+});
+
+export const userIdParamSchema = z.object({
+  params: z.object({
+    id: objectIdSchema,
+  }),
+});
 
 export const listUsersQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().min(1).optional().default(1),
     limit: z.coerce.number().min(1).max(50).optional().default(10),
-    search: z.string().optional(), 
+    search: z.string().optional(),
   }),
 });

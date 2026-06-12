@@ -1,5 +1,7 @@
 import { IUser } from "../../models/User";
 
+export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "friends";
+
 type UserBaseResponse = {
   id: string;
   username: string;
@@ -10,6 +12,17 @@ type UserBaseResponse = {
   settings: IUser["settings"];
   createdAt: Date;
   updatedAt: Date;
+};
+
+type PublicUserProfileResponse = {
+  id: string;
+  username: string;
+  displayName?: string;
+  avatar?: string;
+  bio?: string;
+  createdAt?: Date;
+  friendshipStatus: FriendshipStatus;
+  isPrivate?: boolean;
 };
 
 export const buildProfileResponse = (user: IUser): UserBaseResponse => ({
@@ -23,6 +36,34 @@ export const buildProfileResponse = (user: IUser): UserBaseResponse => ({
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
+
+export const buildPublicProfileResponse = (
+  user: IUser,
+  friendshipStatus: FriendshipStatus,
+  isPrivate = false
+): PublicUserProfileResponse => {
+  const base = {
+    id: user._id.toString(),
+    username: user.username,
+    displayName: user.displayName,
+    avatar: user.avatar,
+    friendshipStatus,
+  };
+
+  if (isPrivate) {
+    return {
+      ...base,
+      isPrivate: true,
+    };
+  }
+
+  return {
+    ...base,
+    bio: user.bio,
+    createdAt: user.createdAt,
+    isPrivate: false,
+  };
+};
 
 export const buildAuthResponse = (user: IUser) => ({
   ...buildProfileResponse(user),
