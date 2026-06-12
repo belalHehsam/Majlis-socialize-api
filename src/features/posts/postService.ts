@@ -45,11 +45,12 @@ export async function uploadToCloudinary(fileBuffer: Buffer, mimetype: string): 
 export async function analyzePostContent(
   content: string,
   tags?: string[],
-  locale: string = "en"
+  locale: string = "en",
+  image?: { buffer: Buffer; mimetype: string }
 ): Promise<AnalyzeContentResult> {
   let moderationResult;
   try {
-    moderationResult = await moderateContent(content, locale);
+    moderationResult = await moderateContent(content, image, locale);
   } catch (error) {
     throw new AppError(
       "Content moderation service is temporarily unavailable. Please try again later.",

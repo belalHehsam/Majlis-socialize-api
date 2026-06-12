@@ -24,8 +24,9 @@ export const analyzePost = async (
 ): Promise<void> => {
   const { content, tags } = req.body;
   const locale = req.headers["accept-language"]?.startsWith("ar") ? "ar" : "en";
+  const image = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : undefined;
 
-  const result = await analyzePostContent(content, tags, locale);
+  const result = await analyzePostContent(content, tags, locale, image);
 
   if (result.decision === "rejected") {
     res.status(422).json(
@@ -64,8 +65,9 @@ export const createPost = async (
 ): Promise<void> => {
   const { content, tags, commentsEnabled } = req.body;
   const userId = req.user!.id;
+  const image = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : undefined;
 
-  const result = await analyzePostContent(content, tags);
+  const result = await analyzePostContent(content, tags, "en", image);
 
   if (result.decision === "rejected") {
     res.status(422).json(
