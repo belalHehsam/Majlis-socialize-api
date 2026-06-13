@@ -11,6 +11,7 @@ import friendRoutes from "./features/friends/friendRoutes"
 import notificationRoutes from "./features/notifications/notificationRoutes";
 import chatRoutes from "./features/chat/chatRoutes";
 import voiceRoutes from "./features/voice/voiceRoutes";
+import categoryRoutes from "./features/categories/categoryRoutes";
 
 // ── Feature Routes ────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ app.use("/api/friends", friendRoutes)
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/voice-channels", voiceRoutes);
+app.use("/api/categories", categoryRoutes);
 
 app.use(notFound);
 

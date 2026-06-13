@@ -75,6 +75,9 @@ export const registerChatHandlers = (io: Server, socket: Socket) => {
       // 🔥 broadcast to room
       io.to(messageConversationId).emit("chat:newMessage", message);
 
+      // Send a direct message event to the recipient
+      SocketService.emitToUser(recipientId, "chat:messageReceived", message);
+
       // 🔔 offline notification
       if (!SocketService.isOnline(recipientId)) {
         SocketService.notifyUser(

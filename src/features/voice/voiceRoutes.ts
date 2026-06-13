@@ -12,7 +12,6 @@ const router = Router();
 
 router.use(authorize);
 
-router.get("/categories", voiceController.listCategories);
 router.get("/", validate(listVoiceChannelsSchema), voiceController.listVoiceChannels);
 router.post("/", validate(createVoiceChannelSchema), voiceController.createVoiceChannel);
 router.get("/:channelId", validate(voiceChannelIdSchema), voiceController.getVoiceChannel);

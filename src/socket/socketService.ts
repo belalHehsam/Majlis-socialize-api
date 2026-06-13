@@ -82,6 +82,13 @@ class SocketService {
   static emitToRoom(event: keyof ServerToClientEvents, room: string, payload: unknown): void {
     this.io.to(room).emit(event, payload);
   }
+
+  static emitToUser(userId: string, event: keyof ServerToClientEvents, payload: unknown): void {
+    const sockets = this.getActiveSockets(userId);
+    for (const socketId of sockets) {
+      this.io.to(socketId).emit(event, payload as any);
+    }
+  }
 }
 
 export default SocketService;

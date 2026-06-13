@@ -9,8 +9,9 @@ import {
   listFriends,
   getFriendRequests,
   getFriendSuggestions,
+  getFriendshipStatus,
 } from "./friendController";
-import { sendRequestSchema, requestIdParamSchema, listFriendsQuerySchema } from "./friendValidator";
+import { sendRequestSchema, requestIdParamSchema, listFriendsQuerySchema, userIdParamSchema } from "./friendValidator";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.delete("/request/:requestId/reject", validate(requestIdParamSchema), reje
 
 router.get("/", validate(listFriendsQuerySchema), listFriends);
 router.get("/suggestions", getFriendSuggestions);
+router.get("/status/:userId", validate(userIdParamSchema), getFriendshipStatus);
 
 export default router;
