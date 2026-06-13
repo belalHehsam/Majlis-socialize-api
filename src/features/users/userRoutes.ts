@@ -7,6 +7,7 @@ import {
     getUserProfile,
     listUsers,
     updateMyAvatar,
+    updateMyCoverPhoto,
     updateMyProfile,
     updateMySettings,
 } from "./userController";
@@ -25,6 +26,12 @@ router.get("/me", authorize, validate(getMyProfileSchema), getMyProfile);
 router.patch("/me", authorize, validate(updateProfileSchema), updateMyProfile);
 
 router.patch("/me/avatar", authorize, upload.single("avatar"), updateMyAvatar);
+router.patch(
+    "/me/cover-photo",
+    authorize,
+    upload.single("coverPhoto"),
+    updateMyCoverPhoto
+);
 
 router.patch(
     "/me/settings",

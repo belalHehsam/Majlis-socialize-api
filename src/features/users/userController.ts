@@ -21,14 +21,15 @@ type CloudinaryUploadResult = {
 const DEFAULT_PROFILE_POSTS_LIMIT = 10;
 const MAX_PROFILE_POSTS_LIMIT = 50;
 
-const uploadAvatarToCloudinary = (
+const uploadImageToCloudinary = (
   fileBuffer: Buffer,
-  mimetype: string
+  mimetype: string,
+  folder: string
 ): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: "majlis/avatars",
+        folder,
         resource_type: "image",
         format: mimetype.split("/")[1],
       },
@@ -47,6 +48,17 @@ const uploadAvatarToCloudinary = (
     stream.end(fileBuffer);
   });
 };
+
+const uploadAvatarToCloudinary = (
+  fileBuffer: Buffer,
+  mimetype: string
+): Promise<CloudinaryUploadResult> => uploadImageToCloudinary(fileBuffer, mimetype, "majlis/avatars");
+
+const uploadCoverPhotoToCloudinary = (
+  fileBuffer: Buffer,
+  mimetype: string
+): Promise<CloudinaryUploadResult> =>
+  uploadImageToCloudinary(fileBuffer, mimetype, "majlis/cover_photos");
 
 const extractCloudinaryPublicId = (imageUrl?: string): string | null => {
   if (!imageUrl || !imageUrl.includes("res.cloudinary.com")) return null;
@@ -252,6 +264,10 @@ export const updateMyProfile = asyncWrapper(
       updates.avatar = req.body.avatar;
     }
 
+    if (req.body.coverPhoto !== undefined) {
+      updates.coverPhoto = req.body.coverPhoto;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(req.user.id, updates, {
       new: true,
       runValidators: true,
@@ -312,6 +328,62 @@ export const updateMyAvatar = asyncWrapper(
     }
 
     user.avatar = uploadedAvatar.secureUrl;
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(
+      jsend.success({
+        user: buildProfileResponse(user),
+      })
+    );
+  }
+);
+
+export const updateMyCoverPhoto = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("You are not logged in", 401));
+    }
+
+    if (!req.file) {
+      return next(new AppError("Cover photo image is required", 400));
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    let uploadedCoverPhoto: CloudinaryUploadResult;
+
+    try {
+      uploadedCoverPhoto = await uploadCoverPhotoToCloudinary(
+        req.file.buffer,
+        req.file.mimetype
+      );
+    } catch {
+      return next(new AppError("Cover photo upload failed. Please try again.", 500));
+    }
+
+    const oldCoverPhotoPublicId = extractCloudinaryPublicId(user.coverPhoto);
+
+    if (oldCoverPhotoPublicId) {
+      try {
+        await cloudinary.uploader.destroy(oldCoverPhotoPublicId, {
+          resource_type: "image",
+        });
+      } catch {
+        await cloudinary.uploader
+          .destroy(uploadedCoverPhoto.publicId, {
+            resource_type: "image",
+          })
+          .catch(() => undefined);
+
+        return next(new AppError("Old cover photo deletion failed. Please try again.", 500));
+      }
+    }
+
+    user.coverPhoto = uploadedCoverPhoto.secureUrl;
     await user.save({ validateBeforeSave: false });
 
     return res.status(200).json(

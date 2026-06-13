@@ -8,6 +8,7 @@ type UserBaseResponse = {
   displayName?: string;
   email?: string;
   avatar?: string;
+  coverPhoto?: string;
   bio?: string;
   settings: IUser["settings"];
   createdAt: Date;
@@ -19,6 +20,7 @@ type PublicUserProfileResponse = {
   username: string;
   displayName?: string;
   avatar?: string;
+  coverPhoto?: string;
   bio?: string;
   createdAt?: Date;
   friendshipStatus: FriendshipStatus;
@@ -31,6 +33,7 @@ export const buildProfileResponse = (user: IUser): UserBaseResponse => ({
   displayName: user.displayName,
   email: user.settings?.showEmail ? user.email : undefined,
   avatar: user.avatar,
+  coverPhoto: user.coverPhoto,
   bio: user.bio,
   settings: user.settings,
   createdAt: user.createdAt,
@@ -47,6 +50,7 @@ export const buildPublicProfileResponse = (
     username: user.username,
     displayName: user.displayName,
     avatar: user.avatar,
+    coverPhoto: user.coverPhoto,
     bio: user.bio,
     friendshipStatus,
   };

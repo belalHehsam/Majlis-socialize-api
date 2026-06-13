@@ -19,6 +19,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   avatar?: string;
+  coverPhoto?: string;
   bio?: string;
   role: "user" | "moderator" | "admin";
   accountStatus: "active" | "suspended" | "deleted";
@@ -70,6 +71,10 @@ const UserSchema = new Schema<IUser>(
     },
 
     avatar: {
+      type: String,
+    },
+
+    coverPhoto: {
       type: String,
     },
 
