@@ -20,11 +20,13 @@ export const connectDB = async (): Promise<void> => {
     if (count === 0) {
       console.log("Seeding default categories...");
       await Category.create([
-        { name: "General", slug: "general", description: "General discussions" },
-        { name: "Development", slug: "development", description: "Programming & coding" },
-        { name: "Design", slug: "design", description: "UI/UX & graphic design" },
-        { name: "Gaming", slug: "gaming", description: "Video games discussions" },
-        { name: "Islamic", slug: "islamic", description: "Quran, Hadith, & general Islamic topics" },
+        { name: "Quran", slug: "quran", description: "Quran studies, recitation, and reflections" },
+        { name: "Hadith", slug: "hadith", description: "Prophetic traditions and narrations" },
+        { name: "Fiqh", slug: "fiqh", description: "Islamic jurisprudence and rulings" },
+        { name: "Dua", slug: "dua", description: "Supplications, prayers, and remembrance" },
+        { name: "Tafsir", slug: "tafsir", description: "Quranic exegesis and commentary" },
+        { name: "Seerah", slug: "seerah", description: "Biography of the Prophet Muhammad (PBUH)" },
+        { name: "Reminder", slug: "reminder", description: "Spiritual reminders and advice" },
       ]);
       console.log("Default categories seeded successfully");
     }
