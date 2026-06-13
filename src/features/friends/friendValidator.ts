@@ -18,3 +18,9 @@ export const listFriendsQuerySchema = z.object({
     limit: z.coerce.number().min(1).max(50).optional().default(10),
   }),
 });
+
+export const userIdParamSchema = z.object({
+  params: z.object({
+    userId: z.string().min(1, "User ID is required"),
+  }).strict(),
+});
