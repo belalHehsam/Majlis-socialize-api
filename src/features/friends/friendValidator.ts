@@ -11,3 +11,16 @@ export const requestIdParamSchema = z.object({
     requestId: z.string().min(1, "Request ID is required"),
   }).strict(),
 });
+
+export const listFriendsQuerySchema = z.object({
+  query: z.object({
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(50).optional().default(10),
+  }),
+});
+
+export const userIdParamSchema = z.object({
+  params: z.object({
+    userId: z.string().min(1, "User ID is required"),
+  }).strict(),
+});

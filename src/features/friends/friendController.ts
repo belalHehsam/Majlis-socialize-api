@@ -1,115 +1,244 @@
-import { Request, Response, NextFunction } from "express";
-import { asyncWrapper } from "../../utils/asyncWrapper";
-import {AppError} from "../../utils/appError";
-import jsend from "../../utils/jsend";
+import { NextFunction, Request, Response } from "express";
 import Friend from "../../models/Friend";
-import SocketService from "../../socket/socketService";
+import User from "../../models/User";
+import { AppError } from "../../utils/appError";
+import { asyncWrapper } from "../../utils/asyncWrapper";
+import jsend from "../../utils/jsend";
+import { createNotification } from "../notifications/notificationService";
 
+export const sendFriendRequest = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { recipientId } = req.body;
+    const requesterId = user.id;
 
-export const sendFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
-  const user = req.user!; 
-  const { recipientId } = req.body;
-  const requesterId = user.id;
+    if (recipientId === requesterId) {
+      return next(new AppError("You cannot send a friend request to yourself", 400));
+    }
 
-  if (recipientId === requesterId) {
-    return next(new AppError("You cannot send a friend request to yourself", 400));
+    const existingRequest = await Friend.findOne({
+      $or: [
+        { requester: requesterId, recipient: recipientId },
+        { requester: recipientId, recipient: requesterId },
+      ],
+    }).lean();
+
+    if (existingRequest) {
+      return next(new AppError("Friend request or friendship already exists", 400));
+    }
+
+    const newRequest = await Friend.create({
+      requester: requesterId,
+      recipient: recipientId,
+      status: "pending",
+    });
+
+    await createNotification({
+      recipient: recipientId,
+      sender: requesterId,
+      type: "friend_request",
+    });
+
+    return res.status(201).json(jsend.success({ friendRequest: newRequest }));
   }
+);
 
-  const existingRequest = await Friend.findOne({
-    $or: [
-      { requester: requesterId, recipient: recipientId },
-      { requester: recipientId, recipient: requesterId },
-    ],
-  }).lean();
+export const cancelFriendRequest = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { requestId } = req.params;
 
-  if (existingRequest) {
-    return next(new AppError("Friend request or friendship already exists", 400));
+    const request = await Friend.findOneAndDelete({
+      _id: requestId,
+      requester: user.id,
+      status: "pending",
+    });
+
+    if (!request) {
+      return next(new AppError("Friend request not found or cannot be cancelled", 404));
+    }
+
+    return res.status(200).json(jsend.success(null));
   }
+);
 
-  const newRequest = await Friend.create({
-    requester: requesterId,
-    recipient: recipientId,
-    status: "pending",
-  });
+export const acceptFriendRequest = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { requestId } = req.params;
 
-  SocketService.sendFriendRequest(recipientId, {
-    fromUser: {
-      _id: requesterId,
-      username: user.username,
-      avatar: user.avatar,
-    },
-    createdAt: newRequest.createdAt,
-  });
+    const request = await Friend.findOneAndUpdate(
+      { _id: requestId, recipient: user.id, status: "pending" },
+      { status: "accepted" },
+      { new: true, runValidators: true }
+    ).populate("requester", "username avatar");
 
-  return res.status(201).json(jsend.success({ friendRequest: newRequest }));
-});
+    if (!request) {
+      return next(new AppError("Friend request not found", 404));
+    }
 
+    const populatedRequester = request.requester as unknown as {
+      _id: string;
+      username: string;
+      avatar?: string;
+    };
 
-export const cancelFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+    await createNotification({
+      recipient: populatedRequester._id.toString(),
+      sender: user.id,
+      type: "friend_accept",
+    });
+
+    return res.status(200).json(jsend.success({ friendRequest: request }));
+  }
+);
+
+export const rejectFriendRequest = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { requestId } = req.params;
+
+    const request = await Friend.findOneAndDelete({
+      _id: requestId,
+      recipient: user.id,
+      status: "pending",
+    });
+
+    if (!request) {
+      return next(new AppError("Friend request not found", 404));
+    }
+
+    return res.status(200).json(jsend.success(null));
+  }
+);
+
+export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   const user = req.user!;
-  const { requestId } = req.params;
 
-  const request = await Friend.findOneAndDelete({
-    _id: requestId,
-    requester: user.id,
-    status: "pending",
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const friendships = await Friend.find({
+    status: "accepted",
+    $or: [{ requester: user.id }, { recipient: user.id }],
+  })
+    .populate("requester", "username avatar")
+    .populate("recipient", "username avatar")
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const total = await Friend.countDocuments({
+    status: "accepted",
+    $or: [{ requester: user.id }, { recipient: user.id }],
   });
 
-  if (!request) {
-    return next(new AppError("Friend request not found or cannot be cancelled", 404));
-  }
-
-  return res.status(200).json(jsend.success(null));
-});
-
-
-export const acceptFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
-  const user = req.user!;
-  const { requestId } = req.params;
-
-  const request = await Friend.findOneAndUpdate(
-    { _id: requestId, recipient: user.id, status: "pending" },
-    { status: "accepted" },
-    { new: true, runValidators: true }
-  ).populate("requester", "username avatar");
-
-  if (!request) {
-    return next(new AppError("Friend request not found", 404));
-  }
-
-
-  const populatedRequester = request.requester as unknown as {
-    _id: string;
-    username: string;
-    avatar?: string;
-  };
-
-  SocketService.sendFriendAccepted(populatedRequester._id.toString(), {
-    fromUser: {
-      _id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-    },
-    createdAt: new Date(),
+  const friends = friendships.map((friendship: any) => {
+    if (friendship.requester._id.toString() === user.id) {
+      return friendship.recipient;
+    }
+    return friendship.requester;
   });
 
-  return res.status(200).json(jsend.success({ friendRequest: request }));
+  return res.status(200).json(
+    jsend.success({
+      friends,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
 });
 
+export const getFriendRequests = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
 
-export const rejectFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
-  const user = req.user!;
-  const { requestId } = req.params;
+    const requests = await Friend.find({
+      recipient: user.id,
+      status: "pending",
+    }).populate("requester", "username displayName avatar");
 
-  const request = await Friend.findOneAndDelete({
-    _id: requestId,
-    recipient: user.id,
-    status: "pending",
-  });
-
-  if (!request) {
-    return next(new AppError("Friend request not found", 404));
+    return res.status(200).json(
+      jsend.success({
+        data: requests.length,
+        requests,
+      })
+    );
   }
+);
 
-  return res.status(200).json(jsend.success(null));
-});
+export const getFriendSuggestions = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+
+    // Find all users the current user already has a relationship with
+    const existingRelationships = await Friend.find({
+      $or: [{ requester: user.id }, { recipient: user.id }],
+    }).select("requester recipient");
+
+    const excludedUserIds = new Set<string>();
+    excludedUserIds.add(user.id);
+
+    existingRelationships.forEach((rel) => {
+      excludedUserIds.add(rel.requester.toString());
+      excludedUserIds.add(rel.recipient.toString());
+    });
+
+    const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select("username displayName avatar createdAt");
+
+    return res.status(200).json(
+      jsend.success({
+        count: suggestions.length,
+        suggestions,
+      })
+    );
+  }
+);
+
+export const getFriendshipStatus = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { userId } = req.params;
+
+    if (user.id === userId) {
+      return res.status(200).json(
+        jsend.success({ status: "none", requestId: null })
+      );
+    }
+
+    const relationship = await Friend.findOne({
+      $or: [
+        { requester: user.id, recipient: userId },
+        { requester: userId, recipient: user.id },
+      ],
+    }).lean();
+
+    let status = "none";
+    let requestId = null;
+
+    if (relationship) {
+      requestId = relationship._id;
+      if (relationship.status === "accepted") {
+        status = "accepted";
+      } else if (relationship.status === "pending") {
+        if (relationship.requester.toString() === user.id) {
+          status = "pending_sent";
+        } else {
+          status = "pending_received";
+        }
+      }
+    }
+
+    return res.status(200).json(
+      jsend.success({ status, requestId })
+    );
+  }
+);

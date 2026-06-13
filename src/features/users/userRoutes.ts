@@ -19,6 +19,5 @@ router.patch(
     validate(updateSettingsSchema),
     updateMySettings
 );
-router.get("/", validate(listUsersQuerySchema), listUsers);
-
+router.get("/", authorize, validate(listUsersQuerySchema), listUsers);
 export default router;

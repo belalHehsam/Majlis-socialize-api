@@ -63,6 +63,9 @@ export const sendMessage = async (req: Request, res: Response) => {
   const messageConversationId = message.conversation.toString();
   SocketService.emitToRoom("chat:newMessage", messageConversationId, message);
 
+  // Send a direct message event to the recipient
+  SocketService.emitToUser(recipientId, "chat:messageReceived", message);
+
   // 🔔 offline notification if the recipient is not online
   if (!SocketService.isOnline(recipientId)) {
     const sender = (message as any).sender || { _id: req.user.id };
@@ -72,7 +75,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     const previewContent = message.type === "image" ? "Image attachment" : message.content;
 
     SocketService.notifyUser(recipientId, {
-      type: "NEW_MESSAGE",
+      type: "new_message",
       fromUser: {
         _id: senderIdStr,
         username: sender.username,

@@ -28,7 +28,7 @@ const buildOfflineNotification = (
   const previewContent = message.type === "image" ? "Image attachment" : message.content;
 
   return {
-    type: "NEW_MESSAGE" as const,
+    type: "new_message" as const,
     fromUser: {
       _id: senderIdStr,
       username: sender.username,
@@ -74,6 +74,9 @@ export const registerChatHandlers = (io: Server, socket: Socket) => {
 
       // 🔥 broadcast to room
       io.to(messageConversationId).emit("chat:newMessage", message);
+
+      // Send a direct message event to the recipient
+      SocketService.emitToUser(recipientId, "chat:messageReceived", message);
 
       // 🔔 offline notification
       if (!SocketService.isOnline(recipientId)) {

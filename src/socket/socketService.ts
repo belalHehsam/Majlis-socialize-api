@@ -1,10 +1,5 @@
-import type {
-  FriendAcceptedPayload,
-  FriendRequestPayload,
-  IO,
-  NotificationPayload,
-  ServerToClientEvents,
-} from "../types/socketTypes";
+import type { IO, NotificationPayload,
+  ServerToClientEvents, } from "../types/socketTypes";
 
 class SocketService {
   private static io: IO;
@@ -56,22 +51,16 @@ class SocketService {
     }
   }
 
-  static sendFriendRequest(userId: string, payload: FriendRequestPayload): void {
-    const sockets = this.getActiveSockets(userId);
-    for (const socketId of sockets) {
-      this.io.to(socketId).emit("friend:request", payload);
-    }
-  }
-
-  static sendFriendAccepted(userId: string, payload: FriendAcceptedPayload): void {
-    const sockets = this.getActiveSockets(userId);
-    for (const socketId of sockets) {
-      this.io.to(socketId).emit("friend:accepted", payload);
-    }
-  }
 
   static emitToRoom(event: keyof ServerToClientEvents, room: string, payload: unknown): void {
     this.io.to(room).emit(event, payload);
+  }
+
+  static emitToUser(userId: string, event: keyof ServerToClientEvents, payload: unknown): void {
+    const sockets = this.getActiveSockets(userId);
+    for (const socketId of sockets) {
+      this.io.to(socketId).emit(event, payload as any);
+    }
   }
 }
 
