@@ -47,6 +47,7 @@ export const buildPublicProfileResponse = (
     username: user.username,
     displayName: user.displayName,
     avatar: user.avatar,
+    bio: user.bio,
     friendshipStatus,
   };
 
@@ -59,7 +60,6 @@ export const buildPublicProfileResponse = (
 
   return {
     ...base,
-    bio: user.bio,
     createdAt: user.createdAt,
     isPrivate: false,
   };
@@ -69,6 +69,5 @@ export const buildAuthResponse = (user: IUser) => ({
   ...buildProfileResponse(user),
   email: user.email,
   role: user.role,
-  accountStatus: user.accountStatus,
   lastLoginAt: user.lastLoginAt,
 });

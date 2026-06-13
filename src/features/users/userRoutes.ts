@@ -11,15 +11,16 @@ import {
     updateMySettings,
 } from "./userController";
 import {
+    getMyProfileSchema,
+    getUserProfileSchema,
     listUsersQuerySchema,
     updateProfileSchema,
     updateSettingsSchema,
-    userIdParamSchema,
 } from "./userValidator";
 
 const router = Router();
 
-router.get("/me", authorize, getMyProfile);
+router.get("/me", authorize, validate(getMyProfileSchema), getMyProfile);
 
 router.patch("/me", authorize, validate(updateProfileSchema), updateMyProfile);
 
@@ -34,6 +35,6 @@ router.patch(
 
 router.get("/", authorize, validate(listUsersQuerySchema), listUsers);
 
-router.get("/:id", authorize, validate(userIdParamSchema), getUserProfile);
+router.get("/:id", authorize, validate(getUserProfileSchema), getUserProfile);
 
 export default router;

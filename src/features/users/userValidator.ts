@@ -14,6 +14,11 @@ const objectIdSchema = z
   .string()
   .regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID format");
 
+const profilePostsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(10),
+});
+
 export const updateProfileSchema = z.object({
   body: z
     .object({
@@ -55,6 +60,17 @@ export const userIdParamSchema = z.object({
   params: z.object({
     id: objectIdSchema,
   }),
+});
+
+export const getMyProfileSchema = z.object({
+  query: profilePostsQuerySchema,
+});
+
+export const getUserProfileSchema = z.object({
+  params: z.object({
+    id: objectIdSchema,
+  }),
+  query: profilePostsQuerySchema,
 });
 
 export const listUsersQuerySchema = z.object({

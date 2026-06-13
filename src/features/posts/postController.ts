@@ -8,6 +8,8 @@ import { getRecommendation } from "../../services/recommendationService";
 import Like from "../../models/Like";
 import mongoose from "mongoose";
 import { AggregateFeatures } from "./../../utils/AggregateFeatures";
+import Friend from "../../models/Friend";
+import User from "../../models/User";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -15,6 +17,85 @@ import { AggregateFeatures } from "./../../utils/AggregateFeatures";
 const AUTO_APPROVE_CONFIDENCE = 0.85;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+const getAcceptedFriendIds = async (userId: string): Promise<Set<string>> => {
+  const friendships = await Friend.find({
+    status: "accepted",
+    $or: [{ requester: userId }, { recipient: userId }],
+  })
+    .select("requester recipient")
+    .lean();
+
+  return new Set(
+    friendships.map((friendship) => {
+      const requesterId = friendship.requester.toString();
+      const recipientId = friendship.recipient.toString();
+
+      return requesterId === userId ? recipientId : requesterId;
+    })
+  );
+};
+
+const getHiddenPrivateAuthorIds = async (viewerId: string) => {
+  const friendIds = await getAcceptedFriendIds(viewerId);
+  const visiblePrivateAuthorIds = [viewerId, ...friendIds];
+
+  const hiddenPrivateUsers = await User.find({
+    "settings.isPrivateProfile": true,
+    _id: { $nin: visiblePrivateAuthorIds },
+  })
+    .select("_id")
+    .lean();
+
+  return hiddenPrivateUsers.map((user) => user._id);
+};
+
+const applyPrivateAuthorFilter = async (
+  filter: Record<string, any>,
+  viewerId: string
+): Promise<void> => {
+  const hiddenPrivateAuthorIds = await getHiddenPrivateAuthorIds(viewerId);
+
+  if (hiddenPrivateAuthorIds.length > 0) {
+    filter.author = { $nin: hiddenPrivateAuthorIds };
+  }
+};
+
+const getPostAuthorId = (post: any): string | undefined => {
+  const author = post.author;
+
+  if (!author) return undefined;
+
+  if (author._id) {
+    return author._id.toString();
+  }
+
+  return author.toString();
+};
+
+const canViewerAccessPost = (
+  post: any,
+  viewerId: string,
+  friendIds: Set<string>
+): boolean => {
+  const authorId = getPostAuthorId(post);
+
+  if (!authorId) return false;
+
+  const isOwnPost = authorId === viewerId;
+  const isFriend = authorId ? friendIds.has(authorId) : false;
+  const isPrivateAuthor = post.author?.settings?.isPrivateProfile === true;
+
+  return !isPrivateAuthor || isOwnPost || isFriend;
+};
+
+const removeAuthorSettings = (post: any) => {
+  if (post.author?.settings) {
+    delete post.author.settings;
+  }
+
+  return post;
+};
 
 /**
  * Upload an image buffer to Cloudinary.
@@ -211,9 +292,11 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
     filter.tags = { $in: [req.query.tag] };
   }
 
+  await applyPrivateAuthorFilter(filter, req.user!.id);
+
   const [posts, total] = await Promise.all([
     Post.find(filter)
-      .populate("author", "username avatar")
+      .populate("author", "username displayName avatar bio")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -244,9 +327,17 @@ export const getPostById = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const post = await Post.findById(req.params.id).populate("author", "username avatar").lean();
+  const post = await Post.findById(req.params.id)
+    .populate("author", "username avatar settings.isPrivateProfile")
+    .lean();
 
   if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  const friendIds = await getAcceptedFriendIds(req.user!.id);
+
+  if (!canViewerAccessPost(post, req.user!.id, friendIds)) {
     return next(new AppError("Post not found", 404));
   }
 
@@ -259,7 +350,7 @@ export const getPostById = async (
     return next(new AppError("Post not found", 404));
   }
 
-  res.status(200).json(jsend.success({ post }));
+  res.status(200).json(jsend.success({ post: removeAuthorSettings(post) }));
 };
 
 /**
@@ -383,8 +474,17 @@ export const togglePostLike = async (
   const userId = req.user.id;
   const postId = req.params.id;
 
-  const post = await Post.findById(postId);
+  const post = await Post.findById(postId)
+    .populate("author", "settings.isPrivateProfile")
+    .lean();
+
   if (!post) return next(new AppError("Post not found", 404));
+
+  const friendIds = await getAcceptedFriendIds(userId);
+
+  if (!canViewerAccessPost(post, userId, friendIds)) {
+    return next(new AppError("Post not found", 404));
+  }
 
   const existingLike = await Like.findOne({ user: userId, post: postId });
 
@@ -439,6 +539,8 @@ export const getHomeFeed = async (
     matchCriteria.tags = req.query.tag;
   }
 
+  await applyPrivateAuthorFilter(matchCriteria, req.user.id);
+
   const features = new AggregateFeatures(req.query)
     .match(matchCriteria)
     .sort({ createdAt: -1 })
@@ -489,7 +591,9 @@ export const getHomeFeed = async (
         author: {
           _id: "$authorDetails._id",
           username: "$authorDetails.username",
+          displayName: "$authorDetails.displayName",
           avatar: "$authorDetails.avatar",
+          bio: "$authorDetails.bio",
         },
         //  Converts array matches to an instant toggleable boolean flag for TanStack Query
         isLiked: { $gt: [{ $size: "$currentUserLike" }, 0] },

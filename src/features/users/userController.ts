@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
 import User from "../../models/User";
 import Friend from "../../models/Friend";
+import Post from "../../models/Post";
 import cloudinary from "../../config/cloudinary-config";
 import { AppError } from "../../utils/appError";
 import { asyncWrapper } from "../../utils/asyncWrapper";
@@ -15,6 +17,9 @@ type CloudinaryUploadResult = {
   secureUrl: string;
   publicId: string;
 };
+//For  Pagination on posts in profile
+const DEFAULT_PROFILE_POSTS_LIMIT = 10;
+const MAX_PROFILE_POSTS_LIMIT = 50;
 
 const uploadAvatarToCloudinary = (
   fileBuffer: Buffer,
@@ -86,6 +91,69 @@ const getFriendshipStatus = async (
     : "pending_received";
 };
 
+const parsePositiveInteger = (value: unknown, defaultValue: number): number => {
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
+};
+
+const getProfilePostsPagination = (query: Request["query"]) => {
+  const page = parsePositiveInteger(query.page, 1);
+  const requestedLimit = parsePositiveInteger(query.limit, DEFAULT_PROFILE_POSTS_LIMIT);
+  const limit = Math.min(requestedLimit, MAX_PROFILE_POSTS_LIMIT);
+
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+};
+
+const getProfilePosts = async (
+  authorId: Types.ObjectId | string,
+  query: Request["query"],
+  canViewPosts = true
+) => {
+  const { page, limit, skip } = getProfilePostsPagination(query);
+
+  if (!canViewPosts) {
+    return {
+      posts: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+
+  const postFilter = {
+    author: authorId,
+    moderationStatus: "approved" as const,
+  };
+
+  const [posts, total] = await Promise.all([
+    Post.find(postFilter)
+      .populate("author", "username displayName avatar bio")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Post.countDocuments(postFilter),
+  ]);
+
+  return {
+    posts,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
 export const getMyProfile = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
@@ -98,9 +166,13 @@ export const getMyProfile = asyncWrapper(
       return next(new AppError("User not found", 404));
     }
 
+    const { posts, pagination } = await getProfilePosts(user._id, req.query);
+
     return res.status(200).json(
       jsend.success({
         user: buildProfileResponse(user),
+        posts,
+        pagination,
       })
     );
   }
@@ -112,10 +184,7 @@ export const getUserProfile = asyncWrapper(
       return next(new AppError("You are not logged in", 401));
     }
 
-    const profileUser = await User.findOne({
-      _id: req.params.id,
-      accountStatus: { $ne: "deleted" },
-    });
+    const profileUser = await User.findById(req.params.id);
 
     if (!profileUser) {
       return next(new AppError("User not found", 404));
@@ -123,8 +192,16 @@ export const getUserProfile = asyncWrapper(
 
     const friendshipStatus = await getFriendshipStatus(req.user.id, profileUser._id.toString());
     const isSelf = req.user.id === profileUser._id.toString();
+    const canViewPrivateContent =
+      isSelf || friendshipStatus === "friends" || !profileUser.settings?.isPrivateProfile;
     const shouldHidePrivateProfile =
-      profileUser.settings?.isPrivateProfile && !isSelf && friendshipStatus !== "friends";
+      profileUser.settings?.isPrivateProfile && !canViewPrivateContent;
+
+    const { posts, pagination } = await getProfilePosts(
+      profileUser._id,
+      req.query,
+      canViewPrivateContent
+    );
 
     return res.status(200).json(
       jsend.success({
@@ -133,6 +210,8 @@ export const getUserProfile = asyncWrapper(
           friendshipStatus,
           Boolean(shouldHidePrivateProfile)
         ),
+        posts,
+        pagination,
       })
     );
   }
