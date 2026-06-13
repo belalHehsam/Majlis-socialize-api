@@ -119,26 +119,32 @@ export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const friendships = await Friend.find({
-    status: "accepted",
-    $or: [{ requester: user.id }, { recipient: user.id }],
-  })
-    .populate("requester", "username avatar")
-    .populate("recipient", "username avatar")
-    .skip(skip)
-    .limit(limit)
-    .lean();
-
-  const total = await Friend.countDocuments({
-    status: "accepted",
-    $or: [{ requester: user.id }, { recipient: user.id }],
-  });
+  const [friendships, total] = await Promise.all([
+    Friend.find({
+      status: "accepted",
+      $or: [{ requester: user.id }, { recipient: user.id }],
+    })
+      .populate("requester", "username avatar")
+      .populate("recipient", "username avatar")
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Friend.countDocuments({
+      status: "accepted",
+      $or: [{ requester: user.id }, { recipient: user.id }],
+    })
+  ]);
 
   const friends = friendships.map((friendship: any) => {
-    if (friendship.requester._id.toString() === user.id) {
-      return friendship.recipient;
-    }
-    return friendship.requester;
+    const friendObj = friendship.requester._id.toString() === user.id
+      ? friendship.recipient
+      : friendship.requester;
+
+    return {
+      ...friendObj,
+      friendshipStatus: "accepted",
+      friendshipRequestId: friendship._id
+    };
   });
 
   return res.status(200).json(
@@ -161,12 +167,23 @@ export const getFriendRequests = asyncWrapper(
     const requests = await Friend.find({
       recipient: user.id,
       status: "pending",
-    }).populate("requester", "username displayName avatar");
+    })
+      .populate("requester", "username displayName avatar")
+      .lean();
+
+    const formattedRequests = requests.map((request: any) => ({
+      ...request,
+      requester: {
+        ...request.requester,
+        friendshipStatus: "pending_received",
+        friendshipRequestId: request._id,
+      },
+    }));
 
     return res.status(200).json(
       jsend.success({
-        data: requests.length,
-        requests,
+        data: formattedRequests.length,
+        requests: formattedRequests,
       })
     );
   }
@@ -192,12 +209,19 @@ export const getFriendSuggestions = asyncWrapper(
     const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select("username displayName avatar createdAt");
+      .select("username displayName avatar createdAt")
+      .lean();
+
+    const formattedSuggestions = suggestions.map((suggestion: any) => ({
+      ...suggestion,
+      friendshipStatus: "none",
+      friendshipRequestId: null,
+    }));
 
     return res.status(200).json(
       jsend.success({
-        count: suggestions.length,
-        suggestions,
+        count: formattedSuggestions.length,
+        suggestions: formattedSuggestions,
       })
     );
   }

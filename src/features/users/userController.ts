@@ -4,6 +4,7 @@ import { AppError } from "../../utils/appError";
 import { asyncWrapper } from "../../utils/asyncWrapper";
 import jsend from "../../utils/jsend";
 import { buildProfileResponse } from "./userResponse";
+import Friend from "../../models/Friend";
 
 export const getMyProfile = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -122,23 +123,67 @@ export const listUsers = asyncWrapper(async (req: Request, res: Response) => {
   const skip = (page - 1) * limit;
   const search = req.query.search as string | undefined;
 
-  const query: any = { _id: { $ne: user.id } };
+  const query: Record<string, any> = { _id: { $ne: user.id } };
 
   if (search) {
-    query.username = { $regex: search, $options: "i" };
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.username = { $regex: `^${escapedSearch}`, $options: "i" };
   }
 
-  const users = await User.find(query)
-    .select("username avatar")
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const [users, total] = await Promise.all([
+    User.find(query)
+      .select("username avatar")
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    User.countDocuments(query)
+  ]);
 
-  const total = await User.countDocuments(query);
+  const userIds = users.map((u: any) => u._id);
+  const relationships = await Friend.find({
+    $or: [
+      { requester: user.id, recipient: { $in: userIds } },
+      { recipient: user.id, requester: { $in: userIds } },
+    ]
+  }).lean();
+
+  const relationshipMap = new Map<string, any>();
+  relationships.forEach((rel: any) => {
+    const otherUserId = rel.requester.toString() === user.id
+      ? rel.recipient.toString()
+      : rel.requester.toString();
+    relationshipMap.set(otherUserId, rel);
+  });
+
+  const formattedUsers = users.map((u: any) => {
+    const relationship = relationshipMap.get(u._id.toString());
+
+    let friendshipStatus = "none";
+    let friendshipRequestId = null;
+
+    if (relationship) {
+      friendshipRequestId = relationship._id;
+      if (relationship.status === "accepted") {
+        friendshipStatus = "accepted";
+      } else if (relationship.status === "pending") {
+        if (relationship.requester.toString() === user.id) {
+          friendshipStatus = "pending_sent";
+        } else {
+          friendshipStatus = "pending_received";
+        }
+      }
+    }
+
+    return {
+      ...u,
+      friendshipStatus,
+      friendshipRequestId
+    };
+  });
 
   return res.status(200).json(
     jsend.success({
-      users,
+      users: formattedUsers,
       pagination: {
         page,
         limit,
