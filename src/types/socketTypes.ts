@@ -100,6 +100,7 @@ export interface ServerToClientEvents {
   "chat:userTyping": (payload: { userId: string }) => void;
   "chat:userStopTyping": (payload: { userId: string }) => void;
   "chat:messageRead": (payload: { userId: string }) => void;
+  "chat:messageReceived": (message: any) => void;
 }
 
 export interface ClientToServerEvents {
