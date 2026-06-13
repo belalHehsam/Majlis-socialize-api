@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import Comment from "./Comment";
 
 export interface IRecommendation {
   type: "quran" | "hadith";
@@ -58,5 +59,9 @@ const PostSchema = new Schema<IPost>(
   },
   { timestamps: true }
 );
+
+PostSchema.pre("deleteOne", { document: true, query: false }, async function () {
+  await Comment.deleteMany({ post: this._id });
+});
 
 export default mongoose.model<IPost>("Post", PostSchema);
