@@ -15,6 +15,13 @@ export const getOrCreateConversation = async (userId1: string, userId2: string) 
   if (!conversation) {
     conversation = new Conversation({ participants });
     await conversation.save();
+    await conversation.populate("participants", {
+      username: 1,
+      displayName: 1,
+      avatar: 1,
+      bio: 1,
+      lastLoginAt: 1,
+    });
   }
   return conversation;
 };

@@ -252,5 +252,3 @@ export const updateParticipantMediaState = async (
 
   return toChannelPayload(updated as any);
 };
-
-export const listCategories = async () => Category.find().sort({ name: 1 });
