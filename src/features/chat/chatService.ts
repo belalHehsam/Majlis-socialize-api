@@ -7,7 +7,7 @@ const participantPublicFields = {
   username: 1,
   displayName: 1,
   avatar: 1,
-  // bio: 1,
+  bio: 1,
   lastLoginAt: 1,
   "settings.showOnlineStatus": 1,
 };
