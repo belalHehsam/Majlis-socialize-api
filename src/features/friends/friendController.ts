@@ -3,10 +3,9 @@ import { asyncWrapper } from "../../utils/asyncWrapper";
 import { AppError } from "../../utils/appError";
 import jsend from "../../utils/jsend";
 import Friend from "../../models/Friend";
-import SocketService from "../../socket/socketService";
 import User from "../../models/User";
 import { createNotification } from "../notifications/notificationService";
-import User from "../../models/User";
+
 
 
 export const sendFriendRequest = asyncWrapper(
@@ -127,9 +126,9 @@ export const rejectFriendRequest = asyncWrapper(async (req: Request, res: Respon
 
 export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   const user = req.user!;
-  
-  const page = Number(req.query.page)||1;
-  const limit = Number(req.query.limit)||10;
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
   const friendships = await Friend.find({
@@ -140,14 +139,14 @@ export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
     .populate("recipient", "username avatar")
     .skip(skip)
     .limit(limit)
-    .lean(); 
+    .lean();
 
   const total = await Friend.countDocuments({
     status: "accepted",
     $or: [{ requester: user.id }, { recipient: user.id }],
   });
 
-  
+
   const friends = friendships.map((friendship: any) => {
     if (friendship.requester._id.toString() === user.id) {
       return friendship.recipient;
@@ -175,7 +174,7 @@ export const getFriendRequests = asyncWrapper(async (req: Request, res: Response
   const requests = await Friend.find({
     recipient: user.id,
     status: "pending",
-  }).populate("requester", "name avatar"); 
+  }).populate("requester", "name avatar");
 
   return res.status(200).json(
     jsend.success({
@@ -190,8 +189,8 @@ export const getFriendSuggestions = asyncWrapper(async (req: Request, res: Respo
   const user = req.user!;
 
   const suggestions = await User.find({ _id: { $ne: user.id } })
-    .sort({ createdAt: -1 }) 
-    .limit(20) 
+    .sort({ createdAt: -1 })
+    .limit(20)
     .select("name avatar createdAt");
 
   return res.status(200).json(
