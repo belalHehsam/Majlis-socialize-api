@@ -1,6 +1,6 @@
 import { IUser } from "../../models/User";
 
-export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "friends";
+export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
 type UserBaseResponse = {
   id: string;

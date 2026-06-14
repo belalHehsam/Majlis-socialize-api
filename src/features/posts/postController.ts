@@ -297,6 +297,8 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
     filter.content = { $regex: req.query.search as string, $options: "i" };
   }
 
+  await applyPrivateAuthorFilter(filter, req.user!.id);
+
   const [posts, total] = await Promise.all([
     Post.find(filter)
       .populate("author", "username displayName avatar bio")

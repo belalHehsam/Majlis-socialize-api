@@ -96,7 +96,7 @@ const getFriendshipStatus = async (
 
   if (!friendship || friendship.status === "rejected") return "none";
 
-  if (friendship.status === "accepted") return "friends";
+  if (friendship.status === "accepted") return "accepted";
 
   return friendship.requester.toString() === viewerId
     ? "pending_sent"
@@ -205,7 +205,7 @@ export const getUserProfile = asyncWrapper(
     const friendshipStatus = await getFriendshipStatus(req.user.id, profileUser._id.toString());
     const isSelf = req.user.id === profileUser._id.toString();
     const canViewPrivateContent =
-      isSelf || friendshipStatus === "friends" || !profileUser.settings?.isPrivateProfile;
+      isSelf || friendshipStatus === "accepted" || !profileUser.settings?.isPrivateProfile;
     const shouldHidePrivateProfile =
       profileUser.settings?.isPrivateProfile && !canViewPrivateContent;
 
@@ -311,24 +311,22 @@ export const updateMyAvatar = asyncWrapper(
 
     const oldAvatarPublicId = extractCloudinaryPublicId(user.avatar);
 
-    if (oldAvatarPublicId) {
-      try {
-        await cloudinary.uploader.destroy(oldAvatarPublicId, {
-          resource_type: "image",
-        });
-      } catch {
-        await cloudinary.uploader
-          .destroy(uploadedAvatar.publicId, {
-            resource_type: "image",
-          })
-          .catch(() => undefined);
+    user.avatar = uploadedAvatar.secureUrl;
 
-        return next(new AppError("Old avatar deletion failed. Please try again.", 500));
-      }
+    try {
+      await user.save({ validateBeforeSave: false });
+    } catch (error) {
+      await cloudinary.uploader
+        .destroy(uploadedAvatar.publicId, { resource_type: "image" })
+        .catch(() => undefined);
+      throw error;
     }
 
-    user.avatar = uploadedAvatar.secureUrl;
-    await user.save({ validateBeforeSave: false });
+    if (oldAvatarPublicId) {
+      await cloudinary.uploader
+        .destroy(oldAvatarPublicId, { resource_type: "image" })
+        .catch(() => undefined);
+    }
 
     return res.status(200).json(
       jsend.success({
@@ -367,24 +365,22 @@ export const updateMyCoverPhoto = asyncWrapper(
 
     const oldCoverPhotoPublicId = extractCloudinaryPublicId(user.coverPhoto);
 
-    if (oldCoverPhotoPublicId) {
-      try {
-        await cloudinary.uploader.destroy(oldCoverPhotoPublicId, {
-          resource_type: "image",
-        });
-      } catch {
-        await cloudinary.uploader
-          .destroy(uploadedCoverPhoto.publicId, {
-            resource_type: "image",
-          })
-          .catch(() => undefined);
+    user.coverPhoto = uploadedCoverPhoto.secureUrl;
 
-        return next(new AppError("Old cover photo deletion failed. Please try again.", 500));
-      }
+    try {
+      await user.save({ validateBeforeSave: false });
+    } catch (error) {
+      await cloudinary.uploader
+        .destroy(uploadedCoverPhoto.publicId, { resource_type: "image" })
+        .catch(() => undefined);
+      throw error;
     }
 
-    user.coverPhoto = uploadedCoverPhoto.secureUrl;
-    await user.save({ validateBeforeSave: false });
+    if (oldCoverPhotoPublicId) {
+      await cloudinary.uploader
+        .destroy(oldCoverPhotoPublicId, { resource_type: "image" })
+        .catch(() => undefined);
+    }
 
     return res.status(200).json(
       jsend.success({
@@ -438,23 +434,64 @@ export const listUsers = asyncWrapper(async (req: Request, res: Response) => {
   const skip = (page - 1) * limit;
   const search = req.query.search as string | undefined;
 
-  const query: any = { _id: { $ne: user.id } };
+  const query: Record<string, any> = { _id: { $ne: user.id } };
 
   if (search) {
-    query.username = { $regex: search, $options: "i" };
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.username = { $regex: `^${escapedSearch}`, $options: "i" };
   }
 
-  const users = await User.find(query)
-    .select("username avatar")
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const [users, total] = await Promise.all([
+    User.find(query)
+      .select("username avatar")
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    User.countDocuments(query),
+  ]);
 
-  const total = await User.countDocuments(query);
+  const userIds = users.map((listedUser) => listedUser._id);
+  const relationships = await Friend.find({
+    $or: [
+      { requester: user.id, recipient: { $in: userIds } },
+      { recipient: user.id, requester: { $in: userIds } },
+    ],
+  }).lean();
+
+  const relationshipMap = new Map(
+    relationships.map((relationship) => {
+      const otherUserId =
+        relationship.requester.toString() === user.id
+          ? relationship.recipient.toString()
+          : relationship.requester.toString();
+
+      return [otherUserId, relationship];
+    })
+  );
+
+  const formattedUsers = users.map((listedUser) => {
+    const relationship = relationshipMap.get(listedUser._id.toString());
+    let friendshipStatus = "none";
+
+    if (relationship?.status === "accepted") {
+      friendshipStatus = "accepted";
+    } else if (relationship?.status === "pending") {
+      friendshipStatus =
+        relationship.requester.toString() === user.id
+          ? "pending_sent"
+          : "pending_received";
+    }
+
+    return {
+      ...listedUser,
+      friendshipStatus,
+      friendshipRequestId: relationship?._id ?? null,
+    };
+  });
 
   return res.status(200).json(
     jsend.success({
-      users,
+      users: formattedUsers,
       pagination: {
         page,
         limit,

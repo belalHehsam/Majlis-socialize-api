@@ -220,7 +220,14 @@ export const getFriendSuggestions = asyncWrapper(async (req: Request, res: Respo
   const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
     .sort({ createdAt: -1 })
     .limit(20)
-    .select("username displayName avatar createdAt");
+    .select("username displayName avatar createdAt")
+    .lean();
+
+  const formattedSuggestions = suggestions.map((suggestion) => ({
+    ...suggestion,
+    friendshipStatus: "none",
+    friendshipRequestId: null,
+  }));
 
   return res.status(200).json(
     jsend.success({
