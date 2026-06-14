@@ -131,27 +131,32 @@ export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const friendships = await Friend.find({
-    status: "accepted",
-    $or: [{ requester: user.id }, { recipient: user.id }],
-  })
-    .populate("requester", "username avatar")
-    .populate("recipient", "username avatar")
-    .skip(skip)
-    .limit(limit)
-    .lean();
-
-  const total = await Friend.countDocuments({
-    status: "accepted",
-    $or: [{ requester: user.id }, { recipient: user.id }],
-  });
-
+  const [friendships, total] = await Promise.all([
+    Friend.find({
+      status: "accepted",
+      $or: [{ requester: user.id }, { recipient: user.id }],
+    })
+      .populate("requester", "username avatar")
+      .populate("recipient", "username avatar")
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Friend.countDocuments({
+      status: "accepted",
+      $or: [{ requester: user.id }, { recipient: user.id }],
+    })
+  ]);
 
   const friends = friendships.map((friendship: any) => {
-    if (friendship.requester._id.toString() === user.id) {
-      return friendship.recipient;
-    }
-    return friendship.requester;
+    const friendObj = friendship.requester._id.toString() === user.id
+      ? friendship.recipient
+      : friendship.requester;
+
+    return {
+      ...friendObj,
+      friendshipStatus: "accepted",
+      friendshipRequestId: friendship._id
+    };
   });
 
   return res.status(200).json(
@@ -174,29 +179,94 @@ export const getFriendRequests = asyncWrapper(async (req: Request, res: Response
   const requests = await Friend.find({
     recipient: user.id,
     status: "pending",
-  }).populate("requester", "name avatar");
+  })
+    .populate("requester", "username displayName avatar")
+    .lean();
+
+  const formattedRequests = requests.map((request: any) => ({
+    ...request,
+    requester: {
+      ...request.requester,
+      friendshipStatus: "pending_received",
+      friendshipRequestId: request._id,
+    },
+  }));
 
   return res.status(200).json(
     jsend.success({
-      data: requests.length,
-      requests,
+      data: formattedRequests.length,
+      requests: formattedRequests,
     })
   );
-});
-
+}
+);
 
 export const getFriendSuggestions = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
   const user = req.user!;
 
-  const suggestions = await User.find({ _id: { $ne: user.id } })
+  // Find all users the current user already has a relationship with
+  const existingRelationships = await Friend.find({
+    $or: [{ requester: user.id }, { recipient: user.id }],
+  }).select("requester recipient");
+
+  const excludedUserIds = new Set<string>();
+  excludedUserIds.add(user.id);
+
+  existingRelationships.forEach((rel) => {
+    excludedUserIds.add(rel.requester.toString());
+    excludedUserIds.add(rel.recipient.toString());
+  });
+
+  const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
     .sort({ createdAt: -1 })
     .limit(20)
-    .select("name avatar createdAt");
+    .select("username displayName avatar createdAt");
 
   return res.status(200).json(
     jsend.success({
-      data: suggestions.length,
-      suggestions,
+      count: formattedSuggestions.length,
+      suggestions: formattedSuggestions,
     })
   );
-});
+}
+);
+
+export const getFriendshipStatus = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const { userId } = req.params;
+
+    if (user.id === userId) {
+      return res.status(200).json(
+        jsend.success({ status: "none", requestId: null })
+      );
+    }
+
+    const relationship = await Friend.findOne({
+      $or: [
+        { requester: user.id, recipient: userId },
+        { requester: userId, recipient: user.id },
+      ],
+    }).lean();
+
+    let status = "none";
+    let requestId = null;
+
+    if (relationship) {
+      requestId = relationship._id;
+      if (relationship.status === "accepted") {
+        status = "accepted";
+      } else if (relationship.status === "pending") {
+        if (relationship.requester.toString() === user.id) {
+          status = "pending_sent";
+        } else {
+          status = "pending_received";
+        }
+      }
+    }
+
+    return res.status(200).json(
+      jsend.success({ status, requestId })
+    );
+  }
+);

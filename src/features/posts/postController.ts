@@ -292,7 +292,10 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
     filter.tags = { $in: [req.query.tag] };
   }
 
-  await applyPrivateAuthorFilter(filter, req.user!.id);
+  // Optional keyword search on post content
+  if (req.query.search) {
+    filter.content = { $regex: req.query.search as string, $options: "i" };
+  }
 
   const [posts, total] = await Promise.all([
     Post.find(filter)
@@ -308,10 +311,11 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
     jsend.success({
       posts,
       pagination: {
-        currentPage: page,
-        perPage: limit,
+        page,
+        limit,
         total,
         totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
       },
     })
   );
