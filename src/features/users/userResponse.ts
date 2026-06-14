@@ -25,6 +25,7 @@ type PublicUserProfileResponse = {
   createdAt?: Date;
   friendshipStatus: FriendshipStatus;
   isPrivate?: boolean;
+  allowFriendRequests?: boolean;
 };
 
 export const buildProfileResponse = (user: IUser): UserBaseResponse => ({
@@ -53,6 +54,7 @@ export const buildPublicProfileResponse = (
     coverPhoto: user.coverPhoto,
     bio: user.bio,
     friendshipStatus,
+    allowFriendRequests: user.settings?.allowFriendRequests,
   };
 
   if (isPrivate) {
