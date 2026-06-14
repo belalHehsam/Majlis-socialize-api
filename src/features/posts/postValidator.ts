@@ -68,13 +68,15 @@ export const feedQuerySchema = z.object({
       .string()
       .optional()
       .transform((val) => {
-        val ? parseInt(val, 10) : 1;
+        return val ? parseInt(val, 10) : 1;
       }),
     limit: z
       .string()
       .optional()
       .transform((val) => {
-        val ? parseInt(val, 10) : 10;
+        return val ? parseInt(val, 10) : 10;
       }),
+    tag: z.string().optional(),
+    search: z.string().optional(),
   }),
 });
