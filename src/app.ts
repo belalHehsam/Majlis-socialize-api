@@ -24,8 +24,8 @@ app.use(morgan("dev"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/v1/posts", postRoutes);
-app.use("/api/v1/comments", commentRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
 app.use("/api/friends", friendRoutes)
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chats", chatRoutes);
