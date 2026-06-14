@@ -1,10 +1,12 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { asyncWrapper } from "../../utils/asyncWrapper";
+import { AppError } from "../../utils/appError";
+import jsend from "../../utils/jsend";
 import Friend from "../../models/Friend";
 import User from "../../models/User";
-import { AppError } from "../../utils/appError";
-import { asyncWrapper } from "../../utils/asyncWrapper";
-import jsend from "../../utils/jsend";
 import { createNotification } from "../notifications/notificationService";
+
+
 
 export const sendFriendRequest = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -14,6 +16,19 @@ export const sendFriendRequest = asyncWrapper(
 
     if (recipientId === requesterId) {
       return next(new AppError("You cannot send a friend request to yourself", 400));
+    }
+
+    const recipient = await User.findOne({
+      _id: recipientId,
+      accountStatus: { $ne: "deleted" },
+    }).select("settings.allowFriendRequests");
+
+    if (!recipient) {
+      return next(new AppError("Recipient user not found", 404));
+    }
+
+    if (recipient.settings?.allowFriendRequests === false) {
+      return next(new AppError("This user is not accepting friend requests", 403));
     }
 
     const existingRequest = await Friend.findOne({
@@ -43,74 +58,71 @@ export const sendFriendRequest = asyncWrapper(
   }
 );
 
-export const cancelFriendRequest = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user!;
-    const { requestId } = req.params;
+export const cancelFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+  const { requestId } = req.params;
 
-    const request = await Friend.findOneAndDelete({
-      _id: requestId,
-      requester: user.id,
-      status: "pending",
-    });
+  const request = await Friend.findOneAndDelete({
+    _id: requestId,
+    requester: user.id,
+    status: "pending",
+  });
 
-    if (!request) {
-      return next(new AppError("Friend request not found or cannot be cancelled", 404));
-    }
-
-    return res.status(200).json(jsend.success(null));
+  if (!request) {
+    return next(new AppError("Friend request not found or cannot be cancelled", 404));
   }
-);
 
-export const acceptFriendRequest = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user!;
-    const { requestId } = req.params;
+  return res.status(200).json(jsend.success(null));
+});
 
-    const request = await Friend.findOneAndUpdate(
-      { _id: requestId, recipient: user.id, status: "pending" },
-      { status: "accepted" },
-      { new: true, runValidators: true }
-    ).populate("requester", "username avatar");
 
-    if (!request) {
-      return next(new AppError("Friend request not found", 404));
-    }
+export const acceptFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+  const { requestId } = req.params;
 
-    const populatedRequester = request.requester as unknown as {
-      _id: string;
-      username: string;
-      avatar?: string;
-    };
+  const request = await Friend.findOneAndUpdate(
+    { _id: requestId, recipient: user.id, status: "pending" },
+    { status: "accepted" },
+    { new: true, runValidators: true }
+  ).populate("requester", "username avatar");
 
-    await createNotification({
-      recipient: populatedRequester._id.toString(),
-      sender: user.id,
-      type: "friend_accept",
-    });
-
-    return res.status(200).json(jsend.success({ friendRequest: request }));
+  if (!request) {
+    return next(new AppError("Friend request not found", 404));
   }
-);
 
-export const rejectFriendRequest = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user!;
-    const { requestId } = req.params;
 
-    const request = await Friend.findOneAndDelete({
-      _id: requestId,
-      recipient: user.id,
-      status: "pending",
-    });
+  const populatedRequester = request.requester as unknown as {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
 
-    if (!request) {
-      return next(new AppError("Friend request not found", 404));
-    }
+  await createNotification({
+    recipient: populatedRequester._id.toString(),
+    sender: user.id,
+    type: "friend_accept",
+  });
 
-    return res.status(200).json(jsend.success(null));
+  return res.status(200).json(jsend.success({ friendRequest: request }));
+});
+
+
+export const rejectFriendRequest = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+  const { requestId } = req.params;
+
+  const request = await Friend.findOneAndDelete({
+    _id: requestId,
+    recipient: user.id,
+    status: "pending",
+  });
+
+  if (!request) {
+    return next(new AppError("Friend request not found", 404));
   }
-);
+
+  return res.status(200).json(jsend.success(null));
+});
 
 export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   const user = req.user!;
@@ -160,71 +172,70 @@ export const listFriends = asyncWrapper(async (req: Request, res: Response) => {
   );
 });
 
-export const getFriendRequests = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user!;
 
-    const requests = await Friend.find({
-      recipient: user.id,
-      status: "pending",
+export const getFriendRequests = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
+
+  const requests = await Friend.find({
+    recipient: user.id,
+    status: "pending",
+  })
+    .populate("requester", "username displayName avatar")
+    .lean();
+
+  const formattedRequests = requests.map((request: any) => ({
+    ...request,
+    requester: {
+      ...request.requester,
+      friendshipStatus: "pending_received",
+      friendshipRequestId: request._id,
+    },
+  }));
+
+  return res.status(200).json(
+    jsend.success({
+      data: formattedRequests.length,
+      requests: formattedRequests,
     })
-      .populate("requester", "username displayName avatar")
-      .lean();
-
-    const formattedRequests = requests.map((request: any) => ({
-      ...request,
-      requester: {
-        ...request.requester,
-        friendshipStatus: "pending_received",
-        friendshipRequestId: request._id,
-      },
-    }));
-
-    return res.status(200).json(
-      jsend.success({
-        data: formattedRequests.length,
-        requests: formattedRequests,
-      })
-    );
-  }
+  );
+}
 );
 
-export const getFriendSuggestions = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user!;
+export const getFriendSuggestions = asyncWrapper(async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user!;
 
-    // Find all users the current user already has a relationship with
-    const existingRelationships = await Friend.find({
-      $or: [{ requester: user.id }, { recipient: user.id }],
-    }).select("requester recipient");
+  // Find all users the current user already has a relationship with
+  const existingRelationships = await Friend.find({
+    $or: [{ requester: user.id }, { recipient: user.id }],
+  }).select("requester recipient");
 
-    const excludedUserIds = new Set<string>();
-    excludedUserIds.add(user.id);
+  const excludedUserIds = new Set<string>();
+  excludedUserIds.add(user.id);
 
-    existingRelationships.forEach((rel) => {
-      excludedUserIds.add(rel.requester.toString());
-      excludedUserIds.add(rel.recipient.toString());
-    });
+  existingRelationships.forEach((rel) => {
+    excludedUserIds.add(rel.requester.toString());
+    excludedUserIds.add(rel.recipient.toString());
+  });
 
-    const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .select("username displayName avatar createdAt")
-      .lean();
+  const suggestions = await User.find({ _id: { $nin: Array.from(excludedUserIds) } })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .select("username displayName avatar createdAt")
+    .lean();
 
-    const formattedSuggestions = suggestions.map((suggestion: any) => ({
-      ...suggestion,
-      friendshipStatus: "none",
-      friendshipRequestId: null,
-    }));
+  const formattedSuggestions = suggestions.map((suggestion) => ({
+    ...suggestion,
+    friendshipStatus: "none",
+    friendshipRequestId: null,
+  }));
 
-    return res.status(200).json(
-      jsend.success({
-        count: formattedSuggestions.length,
-        suggestions: formattedSuggestions,
-      })
-    );
-  }
+  return res.status(200).json(
+    jsend.success({
+      count: formattedSuggestions.length,
+      suggestions: formattedSuggestions,
+    })
+  );
+}
 );
 
 export const getFriendshipStatus = asyncWrapper(
