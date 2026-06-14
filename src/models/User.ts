@@ -7,6 +7,9 @@ export interface IUserSettings {
   isPrivateProfile: boolean;
   allowFriendRequests: boolean;
   showEmail: boolean;
+  notificationsEnabled: boolean;
+  showOnlineStatus: boolean;
+  allowTagging: boolean;
 }
 
 export interface IUser extends Document {
@@ -16,6 +19,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   avatar?: string;
+  coverPhoto?: string;
   bio?: string;
   role: "user" | "moderator" | "admin";
   accountStatus: "active" | "suspended" | "deleted";
@@ -70,6 +74,10 @@ const UserSchema = new Schema<IUser>(
       type: String,
     },
 
+    coverPhoto: {
+      type: String,
+    },
+
     bio: {
       type: String,
       maxlength: 200,
@@ -110,6 +118,18 @@ const UserSchema = new Schema<IUser>(
       showEmail: {
         type: Boolean,
         default: false,
+      },
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      showOnlineStatus: {
+        type: Boolean,
+        default: true,
+      },
+      allowTagging: {
+        type: Boolean,
+        default: true,
       },
     },
 

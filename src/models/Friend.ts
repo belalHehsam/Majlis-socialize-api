@@ -20,5 +20,8 @@ const FriendSchema = new Schema<IFriend>(
 );
 
 FriendSchema.index({ requester: 1, recipient: 1 }, { unique: true });
+FriendSchema.index({ recipient: 1, requester: 1 });
+FriendSchema.index({ recipient: 1, status: 1 });
+FriendSchema.index({ requester: 1, status: 1 });
 
 export default mongoose.model<IFriend>("Friend", FriendSchema);

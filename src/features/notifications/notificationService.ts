@@ -3,8 +3,17 @@ import SocketService from "../../socket/socketService";
 import APIFeatures from "../../utils/apiFeatures";
 import { NotificationPayload } from "../../types/socketTypes";
 import { CreateNotificationData } from "./notificationTypes";
+import User from "../../models/User";
 
 export const createNotification = async (notificationData: CreateNotificationData) => {
+  const recipientUser = await User.findById(notificationData.recipient)
+    .select("settings.notificationsEnabled")
+    .lean();
+
+  if (!recipientUser || recipientUser.settings?.notificationsEnabled === false) {
+    return null;
+  }
+
   const createData = {
     recipient: notificationData.recipient,
     sender: notificationData.sender,
@@ -16,7 +25,6 @@ export const createNotification = async (notificationData: CreateNotificationDat
       ? { commentText: notificationData.commentText }
       : {}),
   };
-
   // Cast needed because Mongoose's discriminated union overloads can't infer
   // the correct INotification branch from a dynamically built object.
   const notification = await Notification.create(
@@ -29,7 +37,11 @@ export const createNotification = async (notificationData: CreateNotificationDat
 
   if (!populated) throw new Error("Notification not found after creation");
 
-  const sender = populated.sender as { _id: string; username: string; avatar?: string };
+  const sender = populated.sender as {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
 
   let socketPayload: NotificationPayload;
 
@@ -78,7 +90,6 @@ export const createNotification = async (notificationData: CreateNotificationDat
 
   return populated;
 };
-
 export const getUserNotifications = async (
   userId: string,
   options?: { page?: number; limit?: number; unreadOnly?: boolean }
