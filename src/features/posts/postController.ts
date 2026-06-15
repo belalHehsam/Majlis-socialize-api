@@ -8,13 +8,10 @@ import { getRecommendation } from "../../services/recommendationService";
 import Like from "../../models/Like";
 import mongoose from "mongoose";
 import { AggregateFeatures } from "./../../utils/AggregateFeatures";
+import { analyzePostContent, uploadToCloudinary } from "./postService";
 import Friend from "../../models/Friend";
 import User from "../../models/User";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-/** Minimum confidence for auto-approval (below this → flagged for review) */
-const AUTO_APPROVE_CONFIDENCE = 0.85;
+import { createNotification } from "../notifications/notificationService";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -97,27 +94,6 @@ const removeAuthorSettings = (post: any) => {
   return post;
 };
 
-/**
- * Upload an image buffer to Cloudinary.
- * @returns The secure URL of the uploaded image
- */
-async function uploadToCloudinary(fileBuffer: Buffer, mimetype: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: "majlis/posts",
-        resource_type: "image",
-        format: mimetype.split("/")[1],
-      },
-      (error, result) => {
-        if (error || !result) return reject(error ?? new Error("Cloudinary upload failed"));
-        resolve(result.secure_url);
-      }
-    );
-    stream.end(fileBuffer);
-  });
-}
-
 // ── Controllers ───────────────────────────────────────────────────────────────
 
 /**
@@ -132,26 +108,16 @@ export const analyzePost = async (
 ): Promise<void> => {
   const { content, tags } = req.body;
   const locale = req.headers["accept-language"]?.startsWith("ar") ? "ar" : "en";
+  const image = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype } : undefined;
 
-  let moderationResult;
-  try {
-    moderationResult = await moderateContent(content, locale);
-  } catch {
-    return next(
-      new AppError(
-        "Content moderation service is temporarily unavailable. Please try again later.",
-        503
-      )
-    );
-  }
+  const result = await analyzePostContent(content, tags, locale, image);
 
-  // If rejected, return 422 immediately
-  if (moderationResult.decision === "rejected") {
+  if (result.decision === "rejected") {
     res.status(422).json(
       jsend.fail(
         {
-          content: moderationResult.reasoning,
-          violations: moderationResult.violations,
+          content: result.reasoning,
+          violations: result.violations,
         },
         "Your post does not meet our content guidelines"
       )
@@ -159,28 +125,14 @@ export const analyzePost = async (
     return;
   }
 
-  const isFlagged =
-    moderationResult.decision === "needs_review" ||
-    (moderationResult.decision === "approved" &&
-      moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
-
-  const moderationStatus = isFlagged ? "needs_review" : "approved";
-
-  let recommendation = null;
-  try {
-    recommendation = await getRecommendation(content, tags, locale);
-  } catch {
-    // Non-blocking
-  }
-
   res.status(200).json(
     jsend.success({
       moderation: {
-        status: moderationStatus,
-        reasoning: moderationResult.reasoning,
-        detectedTopic: moderationResult.detectedTopic,
+        status: result.moderationStatus,
+        reasoning: result.reasoning,
+        detectedTopic: result.detectedTopic,
       },
-      recommendation,
+      recommendation: result.recommendation,
     })
   );
 };
@@ -198,42 +150,12 @@ export const createPost = async (
   const { content, tags, commentsEnabled } = req.body;
   const userId = req.user!.id;
 
-  let moderationResult;
-  try {
-    moderationResult = await moderateContent(content);
-  } catch {
-    // If AI moderation fails, reject to be safe — we don't want unmoderated posts
-    return next(
-      new AppError(
-        "Content moderation service is temporarily unavailable. Please try again later.",
-        503
-      )
-    );
-  }
-
-  // Rejected — do NOT save
-  if (moderationResult.decision === "rejected") {
-    res.status(422).json(
-      jsend.fail(
-        {
-          content: moderationResult.reasoning,
-          violations: moderationResult.violations,
-        },
-        "Your post does not meet our content guidelines"
-      )
-    );
-    return;
-  }
-
-  // Determine moderation status
-  const isFlagged =
-    moderationResult.decision === "needs_review" ||
-    (moderationResult.decision === "approved" &&
-      moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
-
-  const moderationStatus = isFlagged ? "needs_review" : "approved";
-
-  let recommendation = req.body.recommendation || null;
+  // The client completes /analyze before publishing, so we trust the moderation
+  // result sent back by the frontend — no need to re-run the AI (avoids double billing).
+  const moderationStatus: "approved" | "needs_review" =
+    req.body.moderationStatus === "needs_review" ? "needs_review" : "approved";
+  const isFlagged: boolean = req.body.isFlagged === true || req.body.isFlagged === "true";
+  const recommendation = req.body.recommendation ?? null;
 
   let imageUrl: string | undefined;
   if (req.file) {
@@ -255,19 +177,9 @@ export const createPost = async (
     recommendation: recommendation ?? undefined,
   });
 
-  // Populate author for the response
   await post.populate("author", "username avatar");
 
-  res.status(201).json(
-    jsend.success({
-      post,
-      moderation: {
-        status: moderationStatus,
-        reasoning: moderationResult.reasoning,
-        detectedTopic: moderationResult.detectedTopic,
-      },
-    })
-  );
+  res.status(201).json(jsend.success({ post }));
 };
 
 /**
@@ -356,6 +268,9 @@ export const getPostById = async (
     return next(new AppError("Post not found", 404));
   }
 
+  const existingLike = await Like.exists({ post: post._id, user: req.user!.id });
+  (post as any).isLiked = !!existingLike;
+
   res.status(200).json(jsend.success({ post: removeAuthorSettings(post) }));
 };
 
@@ -381,24 +296,14 @@ export const updatePost = async (
 
   // If content changes, re-run moderation
   if (req.body.content && req.body.content !== post.content) {
-    let moderationResult;
-    try {
-      moderationResult = await moderateContent(req.body.content);
-    } catch {
-      return next(
-        new AppError(
-          "Content moderation service is temporarily unavailable. Please try again later.",
-          503
-        )
-      );
-    }
+    const result = await analyzePostContent(req.body.content, req.body.tags ?? post.tags);
 
-    if (moderationResult.decision === "rejected") {
+    if (result.decision === "rejected") {
       res.status(422).json(
         jsend.fail(
           {
-            content: moderationResult.reasoning,
-            violations: moderationResult.violations,
+            content: result.reasoning,
+            violations: result.violations,
           },
           "Your updated content does not meet our content guidelines"
         )
@@ -406,26 +311,25 @@ export const updatePost = async (
       return;
     }
 
-    const isFlagged =
-      moderationResult.decision === "needs_review" ||
-      (moderationResult.decision === "approved" &&
-        moderationResult.confidence < AUTO_APPROVE_CONFIDENCE);
-
-    post.isFlagged = isFlagged;
-    post.moderationStatus = isFlagged ? "needs_review" : "approved";
-
-    // Re-generate recommendation for updated content
-    try {
-      const recommendation = await getRecommendation(req.body.content, req.body.tags ?? post.tags);
-      post.recommendation = recommendation ?? undefined;
-    } catch {
-      // Non-blocking
-    }
+    post.isFlagged = result.isFlagged;
+    post.moderationStatus = result.moderationStatus;
+    post.recommendation = result.recommendation ?? undefined;
   }
 
   if (req.body.content) post.content = req.body.content;
   if (req.body.tags) post.tags = req.body.tags;
   if (req.body.commentsEnabled !== undefined) post.commentsEnabled = req.body.commentsEnabled;
+  // Bug 2: save recommendation if user attached one in the edit form
+  if (req.body.recommendation !== undefined) post.recommendation = req.body.recommendation ?? undefined;
+
+  // Upload new image to Cloudinary if a new file was provided
+  if (req.file) {
+    try {
+      post.image = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
+    } catch {
+      return next(new AppError("Image upload failed. Please try again.", 500));
+    }
+  }
 
   await post.save();
   await post.populate("author", "username avatar");
@@ -497,7 +401,7 @@ export const togglePostLike = async (
   if (existingLike) {
     await Like.deleteOne({ _id: existingLike._id });
 
-    const updatedPost = await Post.findByIdAndUpdate(
+    let updatedPost = await Post.findByIdAndUpdate(
       postId,
       { $inc: { likesCount: -1 } },
       { new: true, runValidators: true }
@@ -506,7 +410,11 @@ export const togglePostLike = async (
     if (!updatedPost) {
       return next(new AppError("Post not found", 404));
     }
-    res.status(200).json(jsend.success("Post unliked successfully"));
+
+    if (updatedPost.likesCount < 0) {
+      updatedPost = await Post.findByIdAndUpdate(postId, { $set: { likesCount: 0 } }, { new: true });
+    }
+    res.status(200).json(jsend.success({ message: "Post unliked successfully" }));
     return;
   }
 
@@ -522,7 +430,18 @@ export const togglePostLike = async (
     await Like.deleteOne({ user: userId, post: postId });
     return next(new AppError("Post not found", 404));
   }
-  res.status(200).json(jsend.success("Post liked successfully"));
+
+  const postAuthorId = getPostAuthorId(post);
+  if (postAuthorId && postAuthorId !== userId) {
+    await createNotification({
+      recipient: postAuthorId,
+      sender: userId,
+      type: "like",
+      post: postId,
+    });
+  }
+
+  res.status(200).json(jsend.success({ message: "Post liked successfully" }));
 };
 
 /**
@@ -617,5 +536,5 @@ export const getHomeFeed = async (
 
   const pagination = features.buildPagination(totalApprovedPosts, aggregatePosts.length);
 
-  res.status(200).json({ status: "success", data: { posts: aggregatePosts, pagination } });
+  res.status(200).json(jsend.success({ posts: aggregatePosts, pagination }));
 };

@@ -58,10 +58,19 @@ export const errorHandler = (err: any, _req: Request, res: Response, _next: Next
     return;
   }
 
+  // ── Multer: file upload errors ─────────────────────────────────────────────
+  if (err.name === "MulterError") {
+    const message = err.code === "LIMIT_FILE_SIZE" ? "File is too large. Maximum size is 10MB." : err.message;
+    res.status(400).json(jsend.fail({}, message));
+    return;
+  }
+
   // ── Unknown / programming error ────────────────────────────────────────────
   // Log the full error in non-production environments
   if (process.env.NODE_ENV !== "production") {
     console.error("UNHANDLED ERROR:", err);
+    res.status(500).json(jsend.error(err.message || "Something went wrong", err.stack));
+    return;
   }
 
   res.status(500).json(jsend.error("Something went wrong. Please try again later."));

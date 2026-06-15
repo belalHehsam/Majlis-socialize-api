@@ -2,11 +2,11 @@ import multer from "multer";
 import { AppError } from "../utils/appError";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Multer middleware with memory storage.
- * Accepts images only (jpeg, png, webp) up to 5 MB.
+ * Accepts images only (jpeg, png, webp) up to 10 MB.
  * Upload to cloud storage (Cloudinary) from the controller.
  */
 const upload = multer({

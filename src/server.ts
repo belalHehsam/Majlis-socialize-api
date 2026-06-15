@@ -13,7 +13,7 @@ initSocket(server);
 // Start server only after DB connects
 connectDB()
   .then(() => {
-    server.listen(PORT, () => {
+    server.listen(Number(PORT), "0.0.0.0", () => {
       console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
     });
 
