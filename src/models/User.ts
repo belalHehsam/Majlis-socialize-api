@@ -9,7 +9,6 @@ export interface IUserSettings {
   showEmail: boolean;
   notificationsEnabled: boolean;
   showOnlineStatus: boolean;
-  allowTagging: boolean;
 }
 
 export interface IUser extends Document {
@@ -124,10 +123,6 @@ const UserSchema = new Schema<IUser>(
         default: true,
       },
       showOnlineStatus: {
-        type: Boolean,
-        default: true,
-      },
-      allowTagging: {
         type: Boolean,
         default: true,
       },
