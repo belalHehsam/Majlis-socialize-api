@@ -29,6 +29,10 @@ export async function uploadToCloudinary(fileBuffer: Buffer, mimetype: string): 
         folder: "majlis/posts",
         resource_type: "image",
         format: mimetype.split("/")[1],
+        transformation: [
+          { width: 1200, crop: "limit" },
+          { quality: "auto", fetch_format: "auto" }
+        ],
       },
       (error, result) => {
         if (error || !result) return reject(error ?? new Error("Cloudinary upload failed"));
