@@ -19,7 +19,7 @@ const app: Application = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: [process.env.CLIENT_URL ?? "http://localhost:5173", "http://localhost:5173"] }));
+app.use(cors({ origin: [process.env.CLIENT_URL ?? "http://localhost:5173", "http://localhost:5173", "http://127.0.0.1:5173"] }));
 app.use(morgan("dev"));
 
 app.use("/api/auth", authRoutes);
