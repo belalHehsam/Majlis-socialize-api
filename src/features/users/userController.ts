@@ -24,7 +24,8 @@ const MAX_PROFILE_POSTS_LIMIT = 50;
 const uploadImageToCloudinary = (
   fileBuffer: Buffer,
   mimetype: string,
-  folder: string
+  folder: string,
+  transformation?: any[]
 ): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -32,6 +33,7 @@ const uploadImageToCloudinary = (
         folder,
         resource_type: "image",
         format: mimetype.split("/")[1],
+        transformation,
       },
       (error, result) => {
         if (error || !result) {
@@ -52,13 +54,19 @@ const uploadImageToCloudinary = (
 const uploadAvatarToCloudinary = (
   fileBuffer: Buffer,
   mimetype: string
-): Promise<CloudinaryUploadResult> => uploadImageToCloudinary(fileBuffer, mimetype, "majlis/avatars");
+): Promise<CloudinaryUploadResult> => uploadImageToCloudinary(fileBuffer, mimetype, "majlis/avatars", [
+  { width: 500, height: 500, crop: "fill", gravity: "face" },
+  { quality: "auto", fetch_format: "auto" }
+]);
 
 const uploadCoverPhotoToCloudinary = (
   fileBuffer: Buffer,
   mimetype: string
 ): Promise<CloudinaryUploadResult> =>
-  uploadImageToCloudinary(fileBuffer, mimetype, "majlis/cover_photos");
+  uploadImageToCloudinary(fileBuffer, mimetype, "majlis/cover_photos", [
+    { width: 1200, height: 400, crop: "fill" },
+    { quality: "auto", fetch_format: "auto" }
+  ]);
 
 const extractCloudinaryPublicId = (imageUrl?: string): string | null => {
   if (!imageUrl || !imageUrl.includes("res.cloudinary.com")) return null;
