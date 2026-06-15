@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppError } from "../../utils/appError";
 import jsend from "../../utils/jsend";
 import * as voiceService from "./voiceService";
+import SocketService from "../../socket/socketService";
 
 export const createVoiceChannel = async (req: Request, res: Response) => {
   if (!req.user) {
@@ -48,11 +49,16 @@ export const endVoiceChannel = async (req: Request, res: Response) => {
     throw new AppError("User not found", 404);
   }
 
+  const channelId = req.params.channelId as string;
   const channel = await voiceService.endVoiceChannel(
-    req.params.channelId as string,
+    channelId,
     req.user.id,
     req.user.role
   );
+
+  const room = voiceService.getVoiceRoomName(channelId);
+  SocketService.emitToRoom("voice:channelEnded", room, channel);
+  SocketService.emitToRoom("voice:stateChanged", room, channel);
 
   res.status(200).json(
     jsend.success({

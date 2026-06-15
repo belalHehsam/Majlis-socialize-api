@@ -545,6 +545,10 @@ export const getHomeFeed = async (
     matchCriteria.tags = req.query.tag;
   }
 
+  if (req.query.search) {
+    matchCriteria.content = { $regex: req.query.search as string, $options: "i" };
+  }
+
   await applyPrivateAuthorFilter(matchCriteria, req.user.id);
 
   const features = new AggregateFeatures(req.query)
