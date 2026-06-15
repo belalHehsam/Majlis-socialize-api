@@ -8,8 +8,6 @@ export interface IUserSettings {
   allowFriendRequests: boolean;
   showEmail: boolean;
   notificationsEnabled: boolean;
-  showOnlineStatus: boolean;
-  allowTagging: boolean;
 }
 
 export interface IUser extends Document {
@@ -120,14 +118,6 @@ const UserSchema = new Schema<IUser>(
         default: false,
       },
       notificationsEnabled: {
-        type: Boolean,
-        default: true,
-      },
-      showOnlineStatus: {
-        type: Boolean,
-        default: true,
-      },
-      allowTagging: {
         type: Boolean,
         default: true,
       },
