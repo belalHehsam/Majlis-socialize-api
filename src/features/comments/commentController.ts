@@ -3,6 +3,7 @@ import Comment from "../../models/Comment";
 import Post from "../../models/Post";
 import { AppError } from "../../utils/appError";
 import jsend from "../../utils/jsend";
+import { createNotification } from "../notifications/notificationService";
 
 /**
  * @desc    Create a new comment
@@ -39,6 +40,17 @@ export const createComment = async (
     await Post.findByIdAndUpdate(postId, {
         $inc: { commentsCount: 1 },
     });
+
+    const postAuthorId = post.author ? post.author.toString() : undefined;
+    if (postAuthorId && postAuthorId !== req.user.id) {
+        await createNotification({
+            recipient: postAuthorId,
+            sender: req.user.id,
+            type: "comment",
+            post: postId,
+            commentText: content,
+        });
+    }
 
     await comment.populate("author", "username avatar");
 
