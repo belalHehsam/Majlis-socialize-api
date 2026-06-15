@@ -9,10 +9,9 @@ const participantPublicFields = {
   avatar: 1,
   bio: 1,
   lastLoginAt: 1,
-  "settings.showOnlineStatus": 1,
 };
 
-const hideHiddenPresence = (conversation: any, viewerId: string) => {
+const addParticipantPresence = (conversation: any) => {
   const conversationObject =
     typeof conversation.toObject === "function" ? conversation.toObject() : conversation;
 
@@ -21,19 +20,9 @@ const hideHiddenPresence = (conversation: any, viewerId: string) => {
       const participantObject =
         typeof participant.toObject === "function" ? participant.toObject() : participant;
       const participantId = participantObject._id?.toString();
-      const canShowPresence =
-        participantId === viewerId || participantObject.settings?.showOnlineStatus !== false;
 
       participantObject.isOnline =
-        Boolean(participantId) && canShowPresence
-          ? SocketService.isOnline(participantId)
-          : false;
-
-      if (!canShowPresence) {
-        delete participantObject.lastLoginAt;
-      }
-
-      delete participantObject.settings;
+        Boolean(participantId) && SocketService.isOnline(participantId);
 
       return participantObject;
     });
@@ -55,7 +44,7 @@ export const getOrCreateConversation = async (userId1: string, userId2: string) 
     await conversation.populate("participants", participantPublicFields);
   }
 
-  return hideHiddenPresence(conversation, userId1);
+  return addParticipantPresence(conversation);
 };
 
 type MediaInput = {
@@ -134,7 +123,7 @@ export const getUserConversations = async (userId: string) => {
       lastMessageAt: -1,
     });
 
-  return conversations.map((conversation) => hideHiddenPresence(conversation, userId));
+  return conversations.map((conversation) => addParticipantPresence(conversation));
 };
 
 export const markConversationAsRead = async (conversationId: string, userId: string) => {

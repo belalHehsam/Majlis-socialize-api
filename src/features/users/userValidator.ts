@@ -48,7 +48,6 @@ export const updateSettingsSchema = z.object({
       allowFriendRequests: z.boolean().optional(),
       showEmail: z.boolean().optional(),
       notificationsEnabled: z.boolean().optional(),
-      showOnlineStatus: z.boolean().optional(),
     })
     .strict()
     .refine((data) => Object.keys(data).length > 0, {

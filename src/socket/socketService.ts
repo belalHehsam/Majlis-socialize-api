@@ -3,7 +3,6 @@ import type {
   NotificationPayload,
   ServerToClientEvents,
 } from "../types/socketTypes";
-import User from "../models/User";
 
 class SocketService {
   private static io: IO;
@@ -52,24 +51,6 @@ class SocketService {
   static isOnline(userId: string): boolean {
     return this.userSocketMap.has(userId);
   }
-
-  // May need it later
-
-  // static async isOnlineVisibleTo(userId: string, viewerId: string): Promise<boolean> {
-  //   if (userId === viewerId) {
-  //     return this.isOnline(userId);
-  //   }
-
-  //   const user = await User.findById(userId)
-  //     .select("settings.showOnlineStatus")
-  //     .lean();
-
-  //   if (!user || user.settings?.showOnlineStatus === false) {
-  //     return false;
-  //   }
-
-  //   return this.isOnline(userId);
-  // }
 
   static notifyUser(userId: string, payload: NotificationPayload): void {
     const sockets = this.getActiveSockets(userId);
