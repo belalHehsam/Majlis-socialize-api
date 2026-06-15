@@ -42,7 +42,7 @@ const RecommendationSchema = new Schema<IRecommendation>(
 const PostSchema = new Schema<IPost>(
   {
     author: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    content: { type: String, required: true, trim: true, maxlength: 1000 },
+    content: { type: String, required: true, trim: true, maxlength: 50000 },
     image: { type: String },
     tags: [{ type: String, enum: ["quran", "hadith", "fiqh", "general", "dua", "tafsir", "seerah", "reminder"], required: true, index: true }],
     likesCount: { type: Number, default: 0 },
