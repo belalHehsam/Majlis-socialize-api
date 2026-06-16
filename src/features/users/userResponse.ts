@@ -19,6 +19,7 @@ type PublicUserProfileResponse = {
   id: string;
   username: string;
   displayName?: string;
+  email?: string;
   avatar?: string;
   coverPhoto?: string;
   bio?: string;
@@ -32,7 +33,7 @@ export const buildProfileResponse = (user: IUser): UserBaseResponse => ({
   id: user._id.toString(),
   username: user.username,
   displayName: user.displayName,
-  email: user.settings?.showEmail ? user.email : undefined,
+  email: user.email,
   avatar: user.avatar,
   coverPhoto: user.coverPhoto,
   bio: user.bio,
@@ -46,7 +47,7 @@ export const buildPublicProfileResponse = (
   friendshipStatus: FriendshipStatus,
   isPrivate = false
 ): PublicUserProfileResponse => {
-  const base = {
+  const base: PublicUserProfileResponse = {
     id: user._id.toString(),
     username: user.username,
     displayName: user.displayName,
@@ -66,6 +67,7 @@ export const buildPublicProfileResponse = (
 
   return {
     ...base,
+    email: user.settings?.showEmail ? user.email : undefined,
     createdAt: user.createdAt,
     isPrivate: false,
   };
