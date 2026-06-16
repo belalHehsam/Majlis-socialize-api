@@ -6,6 +6,7 @@ import SocketService from "./socketService";
 import User from "../models/User";
 import Post from "../models/Post";
 import Notification from "../models/Notification";
+import Friend from "../models/Friend";
 
 export async function seedTestNotificationsIfNeeded(userId: string, force: boolean = false) {
   try {
@@ -192,6 +193,38 @@ export async function seedTestNotificationsIfNeeded(userId: string, force: boole
 
       // Update createdAt directly bypassing mongoose timestamp middleware
       await Notification.updateOne({ _id: notification._id }, { $set: { createdAt: customDate } });
+
+      // Seed corresponding friendship if it's a friend notification to keep DB state logically synchronized
+      if (item.type === "friend_request" || item.type === "friend_accept") {
+        const existingFriendship = await Friend.findOne({
+          $or: [
+            { requester: sender._id, recipient: userId },
+            { requester: userId, recipient: sender._id },
+          ],
+        });
+
+        if (!existingFriendship) {
+          if (item.type === "friend_request") {
+            await Friend.create({
+              requester: sender._id,
+              recipient: userId,
+              status: "pending",
+            });
+          } else {
+            await Friend.create({
+              requester: userId,
+              recipient: sender._id,
+              status: "accepted",
+            });
+          }
+        } else {
+          const expectedStatus = item.type === "friend_request" ? "pending" : "accepted";
+          if (existingFriendship.status !== expectedStatus) {
+            existingFriendship.status = expectedStatus;
+            await existingFriendship.save();
+          }
+        }
+      }
 
       // Emit via socket payload only if the notification is unread
       if (!item.isRead) {
